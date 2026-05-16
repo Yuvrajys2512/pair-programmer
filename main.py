@@ -20,6 +20,7 @@ from agents.critic import review as critic_review
 from agents.judge import synthesize as judge_synthesize
 from core.debate import run_debate
 from core.models import ActionItem, AgentName, CriticReview, DebateMessage, ReviewItem, Verdict
+from core.modes import MAX_ROUNDS, ReviewMode
 
 console = Console()
 
@@ -221,10 +222,17 @@ def main() -> int:
     )
     parser.add_argument("file", type=Path, help="Path to the code file to review.")
     parser.add_argument(
+        "--mode",
+        type=str,
+        choices=[m.value for m in ReviewMode],
+        default=ReviewMode.STANDARD.value,
+        help="Review intensity: roast (2 rounds, brutal+funny), standard (3, default), deep (5, architectural).",
+    )
+    parser.add_argument(
         "--rounds",
         type=int,
-        default=3,
-        help="Number of debate rounds (default: 3). Round 1 is the initial review + Advocate's first reply.",
+        default=None,
+        help="Override the number of debate rounds. Defaults to the mode's preferred count.",
     )
     parser.add_argument(
         "--solo",
@@ -254,10 +262,12 @@ def main() -> int:
     if args.show_code:
         console.print(Panel(Syntax(code, language or "text", line_numbers=True), title=str(path)))
 
+    mode = ReviewMode(args.mode)
+
     if args.solo:
         with console.status("[bold]The Critic is reading your code...[/bold]", spinner="dots"):
             try:
-                result = critic_review(code=code, language=language)
+                result = critic_review(code=code, language=language, mode=mode)
             except Exception as exc:
                 console.print(f"[red]Review failed:[/red] {exc}")
                 return 2
@@ -265,18 +275,23 @@ def main() -> int:
         return 0
 
     # Debate mode
-    if args.rounds < 1:
+    rounds = args.rounds if args.rounds is not None else MAX_ROUNDS[mode]
+    if rounds < 1:
         console.print("[red]--rounds must be at least 1.[/red]")
         return 1
 
     console.print()
-    console.rule(f"[bold magenta]Debate begins:[/bold magenta] {path.name}  ([dim]{args.rounds} rounds[/dim])")
+    console.rule(
+        f"[bold magenta]Debate begins:[/bold magenta] {path.name}  "
+        f"([dim]{mode.value} mode, {rounds} rounds[/dim])"
+    )
 
     try:
         state = run_debate(
             code=code,
             language=language,
-            max_rounds=args.rounds,
+            mode=mode,
+            max_rounds=rounds,
             listener=TerminalDebateListener(),
         )
     except Exception as exc:

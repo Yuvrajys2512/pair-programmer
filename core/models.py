@@ -1,6 +1,8 @@
 from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
+from core.modes import ReviewMode
+
 
 Category = Literal["BUG", "SECURITY", "EDGE_CASE", "PERF", "DESIGN", "STYLE"]
 Severity = Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
@@ -41,6 +43,7 @@ class DebateState(BaseModel):
     language: Optional[str] = None
     transcript: list[DebateMessage] = Field(default_factory=list)
     max_rounds: int = 3
+    mode: ReviewMode = ReviewMode.STANDARD
 
     def get_initial_review(self) -> Optional[CriticReview]:
         """Return the parsed initial review if it has been recorded, else None."""
