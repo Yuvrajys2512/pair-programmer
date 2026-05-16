@@ -1,4 +1,5 @@
 import argparse
+import difflib
 import sys
 from pathlib import Path
 
@@ -17,9 +18,10 @@ from rich.table import Table
 from rich.text import Text
 
 from agents.critic import review as critic_review
+from agents.fixer import fix as fixer_fix
 from agents.judge import synthesize as judge_synthesize
 from core.debate import run_debate
-from core.models import ActionItem, AgentName, CriticReview, DebateMessage, ReviewItem, Verdict
+from core.models import ActionItem, AgentName, ChangeEntry, CriticReview, DebateMessage, FixerResult, ReviewItem, Verdict
 from core.modes import MAX_ROUNDS, ReviewMode
 
 console = Console()
@@ -213,6 +215,122 @@ class TerminalDebateListener:
         sys.stdout.flush()
 
 
+# --- Fixer renderers and orchestration ------------------------------------
+
+
+def render_diff(original: str, fixed: str, fromfile: str, tofile: str) -> None:
+    diff_lines = list(
+        difflib.unified_diff(
+            original.splitlines(keepends=True),
+            fixed.splitlines(keepends=True),
+            fromfile=fromfile,
+            tofile=tofile,
+            lineterm="",
+        )
+    )
+    if not diff_lines:
+        console.print("[dim]No textual differences found.[/dim]")
+        return
+    diff_text = "\n".join(line.rstrip("\n") for line in diff_lines)
+    console.print(Syntax(diff_text, "diff", theme="monokai", line_numbers=False))
+
+
+def render_fixer_changelog(changelog: list[ChangeEntry], action_items: list[ActionItem]) -> None:
+    table = Table(title="Changelog", show_header=True, header_style="bold", title_style="bold green")
+    table.add_column("#", justify="right", style="dim", no_wrap=True)
+    table.add_column("Action Item", style="dim")
+    table.add_column("Change Applied")
+    for entry in changelog:
+        idx = entry.action_item_index
+        ai = action_items[idx - 1] if 1 <= idx <= len(action_items) else None
+        ai_label = (ai.description[:48] + "…") if ai and len(ai.description) > 48 else (ai.description if ai else "?")
+        table.add_row(str(idx), ai_label, entry.description)
+    console.print(table)
+
+
+def run_fixer(code: str, verdict: Verdict, language: str | None, path: Path) -> None:
+    if not verdict.action_items:
+        console.print("[dim]No action items — nothing for the Fixer to do.[/dim]")
+        return
+
+    console.print()
+    console.rule("[bold green]The Fixer[/bold green]")
+    console.print()
+
+    with console.status("[bold]The Fixer is rewriting the code...[/bold]", spinner="dots"):
+        try:
+            result = fixer_fix(code, verdict, language)
+        except Exception as exc:
+            console.print(f"[red]Fixer failed:[/red] {exc}")
+            return
+
+    if not result.changes_made or not result.changelog:
+        console.print("[dim]The Fixer found no changes to apply.[/dim]")
+        return
+
+    # Show the diff
+    console.print("[bold]Proposed changes:[/bold]")
+    console.print()
+    render_diff(
+        code,
+        result.fixed_code,
+        fromfile=str(path),
+        tofile=f"{path.stem}_fixed{path.suffix}",
+    )
+    console.print()
+    render_fixer_changelog(result.changelog, verdict.action_items)
+    console.print()
+
+    # Per-item confirmation
+    approved_indices: set[int] = set()
+    console.print("[bold]Review each fix — press Enter or Y to apply, N to skip:[/bold]")
+    console.print()
+    for entry in result.changelog:
+        short = entry.description[:72] + ("…" if len(entry.description) > 72 else "")
+        prompt = f"  Fix [dim]#{entry.action_item_index}[/dim] — {short}  [bold]\\[Y/n]:[/bold] "
+        response = console.input(prompt).strip().lower()
+        if response in ("", "y", "yes"):
+            approved_indices.add(entry.action_item_index)
+
+    if not approved_indices:
+        console.print()
+        console.print("[dim]No fixes approved. Nothing written.[/dim]")
+        return
+
+    if len(approved_indices) == len(result.changelog):
+        final_code = result.fixed_code
+    else:
+        # Re-run with only the approved action items
+        seen: set[int] = set()
+        approved_items: list[ActionItem] = []
+        for entry in result.changelog:
+            idx = entry.action_item_index
+            if idx in approved_indices and idx not in seen and 1 <= idx <= len(verdict.action_items):
+                seen.add(idx)
+                approved_items.append(verdict.action_items[idx - 1])
+
+        filtered_verdict = verdict.model_copy(update={"action_items": approved_items})
+        console.print()
+        with console.status("[bold]Re-running with approved fixes only...[/bold]", spinner="dots"):
+            try:
+                result2 = fixer_fix(code, filtered_verdict, language)
+            except Exception as exc:
+                console.print(f"[red]Re-run failed:[/red] {exc}")
+                return
+        final_code = result2.fixed_code
+
+    out_path = path.parent / f"{path.stem}_fixed{path.suffix}"
+    out_path.write_text(final_code, encoding="utf-8")
+    console.print()
+    console.print(
+        Panel(
+            f"[bold green]Fixed code written to:[/bold green] {out_path}\n"
+            f"[dim]{len(approved_indices)} fix(es) applied.[/dim]",
+            border_style="green",
+        )
+    )
+
+
 # --- CLI entry -------------------------------------------------------------
 
 
@@ -243,6 +361,11 @@ def main() -> int:
         "--verdict",
         action="store_true",
         help="After the debate, ask the Judge to synthesize a structured verdict.",
+    )
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="After the verdict, rewrite the code to address the action items. Implies --verdict.",
     )
     parser.add_argument(
         "--show-code",
@@ -304,7 +427,7 @@ def main() -> int:
         f"[dim]{len(state.transcript)} messages across {state.max_rounds} rounds.[/dim]"
     )
 
-    if args.verdict:
+    if args.verdict or args.fix:
         console.print()
         with console.status("[bold]The Judge is synthesizing the verdict...[/bold]", spinner="dots"):
             try:
@@ -313,6 +436,9 @@ def main() -> int:
                 console.print(f"[red]Verdict synthesis failed:[/red] {exc}")
                 return 2
         render_verdict(verdict)
+
+        if args.fix:
+            run_fixer(code, verdict, language, path)
 
     return 0
 

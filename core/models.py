@@ -84,3 +84,20 @@ class Verdict(BaseModel):
     winner_reasoning: str = Field(
         description="One sentence explaining why this agent made the stronger case."
     )
+
+
+class ChangeEntry(BaseModel):
+    action_item_index: int = Field(
+        description="1-indexed reference to the verdict action item this change addresses."
+    )
+    description: str = Field(
+        description="What was changed specifically (line, construct) and why (tied to the action item)."
+    )
+
+
+class FixerResult(BaseModel):
+    fixed_code: str = Field(description="The complete corrected source file.")
+    changelog: list[ChangeEntry] = Field(default_factory=list)
+    changes_made: bool = Field(
+        description="True if any changes were applied, False if the code is returned unchanged."
+    )

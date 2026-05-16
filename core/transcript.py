@@ -1,4 +1,4 @@
-from core.models import AgentName, CriticReview, DebateState
+from core.models import AgentName, CriticReview, DebateState, Verdict
 from core.text import number_lines
 
 
@@ -84,6 +84,43 @@ def build_debate_user_prompt(state: DebateState, role: AgentName, round_number: 
         "",
         "Speak in character. Plain prose only — no JSON, no meta-commentary about being an AI "
         "or about the debate format itself. Address points directly and cite line numbers when applicable.",
+    ]
+    return "\n".join(parts)
+
+
+def build_fixer_user_prompt(code: str, verdict: Verdict, language: str | None = None) -> str:
+    """Assemble the user prompt for the Fixer: numbered code + verdict summary + action items."""
+    lang = language or ""
+    if not verdict.action_items:
+        action_items_text = "(No action items — the Judge found the code satisfactory.)"
+    else:
+        lines: list[str] = []
+        for i, item in enumerate(verdict.action_items, 1):
+            line = f"{i}. [{item.priority}] {item.description}"
+            if item.affected_lines:
+                line += f" (lines: {', '.join(str(ln) for ln in item.affected_lines)})"
+            lines.append(line)
+        action_items_text = "\n".join(lines)
+
+    parts: list[str] = [
+        "## Code to fix",
+        "",
+        f"```{lang}",
+        number_lines(code),
+        "```",
+        "",
+        "## Verdict summary",
+        "",
+        verdict.summary,
+        "",
+        "## Action items to implement (apply ALL of these, and ONLY these)",
+        "",
+        action_items_text,
+        "",
+        "## Your output",
+        "",
+        "Return valid JSON only — no markdown, no prose around it. "
+        "The `fixed_code` field must be the COMPLETE corrected file as a single string.",
     ]
     return "\n".join(parts)
 
