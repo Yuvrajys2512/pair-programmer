@@ -17,8 +17,9 @@ from rich.table import Table
 from rich.text import Text
 
 from agents.critic import review as critic_review
+from agents.judge import synthesize as judge_synthesize
 from core.debate import run_debate
-from core.models import AgentName, CriticReview, DebateMessage, ReviewItem
+from core.models import ActionItem, AgentName, CriticReview, DebateMessage, ReviewItem, Verdict
 
 console = Console()
 
@@ -109,6 +110,76 @@ def render_solo_review(review: CriticReview, code_path: Path) -> None:
     render_review_panel(review)
 
 
+# --- Verdict renderer ------------------------------------------------------
+
+
+def _score_color(score: int) -> str:
+    if score >= 9:
+        return "bold green"
+    if score >= 7:
+        return "green"
+    if score >= 5:
+        return "yellow"
+    if score >= 3:
+        return "red"
+    return "bold red"
+
+
+def render_verdict(verdict: Verdict) -> None:
+    console.print()
+    console.rule("[bold magenta]The Judge's Verdict[/bold magenta]")
+    console.print()
+
+    # Header: score + winner + summary
+    header = Text()
+    header.append("Score: ", style="bold")
+    header.append(f"{verdict.score}/10", style=_score_color(verdict.score))
+    header.append("   |   ", style="dim")
+    header.append("Winner: ", style="bold")
+    header.append(verdict.winner, style=f"bold {AGENT_COLOR[verdict.winner]}")
+    console.print(Panel(verdict.summary, title=header, title_align="left", border_style="magenta"))
+    console.print()
+
+    # Why the winner won
+    console.print(Panel(
+        verdict.winner_reasoning,
+        title=Text(f"Why the {verdict.winner} won", style=f"bold {AGENT_COLOR[verdict.winner]}"),
+        title_align="left",
+        border_style=AGENT_COLOR[verdict.winner],
+    ))
+    console.print()
+
+    # Two-column-ish layout for wins (rendered sequentially for terminal readability)
+    if verdict.critic_wins:
+        body = "\n".join(f"- {w}" for w in verdict.critic_wins)
+        console.print(Panel(body, title="The Critic was right about", title_align="left", border_style="red"))
+    if verdict.advocate_wins:
+        body = "\n".join(f"- {w}" for w in verdict.advocate_wins)
+        console.print(Panel(body, title="The Advocate was right about", title_align="left", border_style="blue"))
+
+    # Strengths (the silver lining)
+    if verdict.strengths:
+        body = "\n".join(f"- {s}" for s in verdict.strengths)
+        console.print(Panel(body, title="Strengths to preserve", title_align="left", border_style="green"))
+
+    # Action items
+    if verdict.action_items:
+        table = Table(title="Action items", show_header=True, header_style="bold", title_style="bold")
+        table.add_column("#", justify="right", style="dim")
+        table.add_column("Priority")
+        table.add_column("Lines", style="dim")
+        table.add_column("Action")
+        for i, item in enumerate(verdict.action_items, 1):
+            lines = ", ".join(str(n) for n in item.affected_lines) if item.affected_lines else "-"
+            table.add_row(
+                str(i),
+                Text(item.priority, style=SEVERITY_COLORS.get(item.priority, "white")),
+                lines,
+                item.description,
+            )
+        console.print(table)
+
+
 # --- Debate-mode listener -------------------------------------------------
 
 
@@ -161,6 +232,11 @@ def main() -> int:
         help="Skip the debate. Only the Critic produces a one-shot structured review (Phase 1 mode).",
     )
     parser.add_argument(
+        "--verdict",
+        action="store_true",
+        help="After the debate, ask the Judge to synthesize a structured verdict.",
+    )
+    parser.add_argument(
         "--show-code",
         action="store_true",
         help="Print the source file before reviewing.",
@@ -210,9 +286,19 @@ def main() -> int:
     console.print()
     console.rule("[bold magenta]Debate complete[/bold magenta]")
     console.print(
-        f"[dim]{len(state.transcript)} messages across {state.max_rounds} rounds. "
-        f"Verdict synthesis coming in Phase 3.[/dim]"
+        f"[dim]{len(state.transcript)} messages across {state.max_rounds} rounds.[/dim]"
     )
+
+    if args.verdict:
+        console.print()
+        with console.status("[bold]The Judge is synthesizing the verdict...[/bold]", spinner="dots"):
+            try:
+                verdict = judge_synthesize(state)
+            except Exception as exc:
+                console.print(f"[red]Verdict synthesis failed:[/red] {exc}")
+                return 2
+        render_verdict(verdict)
+
     return 0
 
 

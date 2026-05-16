@@ -86,3 +86,29 @@ def build_debate_user_prompt(state: DebateState, role: AgentName, round_number: 
         "or about the debate format itself. Address points directly and cite line numbers when applicable.",
     ]
     return "\n".join(parts)
+
+
+def build_judge_user_prompt(state: DebateState) -> str:
+    """Assemble the user prompt for the Judge: code + full transcript + verdict instruction."""
+    lang = state.language or ""
+    parts: list[str] = [
+        "You are about to render a verdict on the following code and the debate that took place.",
+        "",
+        "## The code under review",
+        "",
+        f"```{lang}",
+        number_lines(state.code),
+        "```",
+        "",
+        "## The full debate transcript",
+        "",
+        _format_transcript(state),
+        "",
+        "## Your task",
+        "",
+        "Produce the structured verdict per the JSON schema in your system instructions. "
+        "Weigh each disputed point. Order action items by priority. Strengths must be concrete "
+        "design observations about the code, not about its comments or its length. "
+        "Declare a winner based on the strength of their CASE, not their point count.",
+    ]
+    return "\n".join(parts)
