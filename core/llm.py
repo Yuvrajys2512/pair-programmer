@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import Optional
+from typing import Iterator, Optional
 
 from dotenv import load_dotenv
 from groq import Groq
@@ -12,7 +12,6 @@ load_dotenv()
 class LLMConfig:
     api_key: str
     model: str
-    temperature: float = 0.7
 
 
 def get_config() -> LLMConfig:
@@ -30,7 +29,7 @@ _client: Optional[Groq] = None
 
 
 def get_client() -> Groq:
-    """Singleton Groq client. Reused across agent calls."""
+    """Singleton Groq client, reused across agent calls."""
     global _client
     if _client is None:
         _client = Groq(api_key=get_config().api_key)
@@ -55,3 +54,26 @@ def complete_json(
         ],
     )
     return resp.choices[0].message.content or ""
+
+
+def complete_stream(
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.7,
+) -> Iterator[str]:
+    """Stream content chunks from the LLM, one delta at a time."""
+    cfg = get_config()
+    client = get_client()
+    resp = client.chat.completions.create(
+        model=cfg.model,
+        temperature=temperature,
+        stream=True,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    )
+    for chunk in resp:
+        delta = chunk.choices[0].delta.content
+        if delta:
+            yield delta

@@ -2,14 +2,23 @@ import argparse
 import sys
 from pathlib import Path
 
+# Force UTF-8 on Windows consoles so debate separators and Rich glyphs render correctly.
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 from rich.console import Console
 from rich.panel import Panel
+from rich.rule import Rule
 from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
 
-from agents.critic import review
-from core.models import CriticReview, ReviewItem
+from agents.critic import review as critic_review
+from core.debate import run_debate
+from core.models import AgentName, CriticReview, DebateMessage, ReviewItem
 
 console = Console()
 
@@ -30,6 +39,11 @@ CATEGORY_ICONS = {
     "STYLE": "[STYLE]",
 }
 
+AGENT_COLOR = {
+    "CRITIC": "red",
+    "ADVOCATE": "blue",
+}
+
 
 def detect_language(path: Path) -> str | None:
     return {
@@ -47,62 +61,109 @@ def detect_language(path: Path) -> str | None:
     }.get(path.suffix.lower())
 
 
+# --- Renderers shared between solo and debate modes ------------------------
+
+
 def render_item(item: ReviewItem) -> Panel:
     severity_color = SEVERITY_COLORS.get(item.severity, "white")
     icon = CATEGORY_ICONS.get(item.category, f"[{item.category}]")
-
     header = Text()
     header.append(f"{icon} ", style="bold")
     header.append(item.severity, style=severity_color)
     header.append("  " + item.category, style="dim")
     if item.line_number is not None:
         header.append(f"  line {item.line_number}", style="dim")
-
     body = Text()
     body.append("Issue: ", style="bold")
     body.append(item.issue + "\n")
     body.append("Fix:   ", style="bold")
     body.append(item.suggestion)
-
     return Panel(body, title=header, title_align="left", border_style=severity_color)
 
 
-def render_review(review_result: CriticReview, code_path: Path) -> None:
+def render_review_panel(review: CriticReview) -> None:
     console.print()
-    console.rule(f"[bold]The Critic reviewed[/bold] {code_path.name}")
+    console.print(Panel(review.summary, title="Critic's opening verdict", border_style="magenta"))
     console.print()
-    console.print(Panel(review_result.summary, title="Verdict", border_style="magenta"))
-    console.print()
-
-    if not review_result.items:
+    if not review.items:
         console.print("[green]No issues raised.[/green]")
         return
-
     counts = Table(show_header=True, header_style="bold")
     counts.add_column("Severity")
     counts.add_column("Count", justify="right")
     by_severity: dict[str, int] = {}
-    for it in review_result.items:
+    for it in review.items:
         by_severity[it.severity] = by_severity.get(it.severity, 0) + 1
     for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
         if sev in by_severity:
             counts.add_row(Text(sev, style=SEVERITY_COLORS[sev]), str(by_severity[sev]))
     console.print(counts)
     console.print()
-
-    for item in review_result.items:
+    for item in review.items:
         console.print(render_item(item))
+
+
+def render_solo_review(review: CriticReview, code_path: Path) -> None:
+    console.print()
+    console.rule(f"[bold]The Critic reviewed[/bold] {code_path.name}")
+    render_review_panel(review)
+
+
+# --- Debate-mode listener -------------------------------------------------
+
+
+class TerminalDebateListener:
+    """Streams the debate to the terminal as it unfolds."""
+
+    def on_turn_start(self, agent: AgentName, round_number: int, is_initial_review: bool) -> None:
+        color = AGENT_COLOR[agent]
+        suffix = " (initial review)" if is_initial_review else ""
+        title = Text()
+        title.append(f"Round {round_number} ", style="bold")
+        title.append(f": {agent}", style=f"bold {color}")
+        title.append(suffix, style="dim")
+        console.print()
+        console.print(Rule(title=title, style=color))
+        console.print()
+
+    def on_chunk(self, chunk: str) -> None:
+        # Print raw — Rich would re-interpret markup, which we don't want for streamed prose
+        sys.stdout.write(chunk)
+        sys.stdout.flush()
+
+    def on_turn_complete(self, message: DebateMessage) -> None:
+        if message.is_initial_review:
+            review = CriticReview.model_validate_json(message.content)
+            render_review_panel(review)
+            return
+        # Newline at end of streamed prose
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+
+
+# --- CLI entry -------------------------------------------------------------
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Pair Programmer — Phase 1: have the Critic review a code file."
+        description="Pair Programmer — two agents debate your code."
     )
     parser.add_argument("file", type=Path, help="Path to the code file to review.")
     parser.add_argument(
+        "--rounds",
+        type=int,
+        default=3,
+        help="Number of debate rounds (default: 3). Round 1 is the initial review + Advocate's first reply.",
+    )
+    parser.add_argument(
+        "--solo",
+        action="store_true",
+        help="Skip the debate. Only the Critic produces a one-shot structured review (Phase 1 mode).",
+    )
+    parser.add_argument(
         "--show-code",
         action="store_true",
-        help="Print the source file before the review.",
+        help="Print the source file before reviewing.",
     )
     args = parser.parse_args()
 
@@ -117,14 +178,41 @@ def main() -> int:
     if args.show_code:
         console.print(Panel(Syntax(code, language or "text", line_numbers=True), title=str(path)))
 
-    with console.status("[bold]The Critic is reading your code...[/bold]", spinner="dots"):
-        try:
-            result = review(code=code, language=language)
-        except Exception as exc:
-            console.print(f"[red]Review failed:[/red] {exc}")
-            return 2
+    if args.solo:
+        with console.status("[bold]The Critic is reading your code...[/bold]", spinner="dots"):
+            try:
+                result = critic_review(code=code, language=language)
+            except Exception as exc:
+                console.print(f"[red]Review failed:[/red] {exc}")
+                return 2
+        render_solo_review(result, path)
+        return 0
 
-    render_review(result, path)
+    # Debate mode
+    if args.rounds < 1:
+        console.print("[red]--rounds must be at least 1.[/red]")
+        return 1
+
+    console.print()
+    console.rule(f"[bold magenta]Debate begins:[/bold magenta] {path.name}  ([dim]{args.rounds} rounds[/dim])")
+
+    try:
+        state = run_debate(
+            code=code,
+            language=language,
+            max_rounds=args.rounds,
+            listener=TerminalDebateListener(),
+        )
+    except Exception as exc:
+        console.print(f"\n[red]Debate failed:[/red] {exc}")
+        return 2
+
+    console.print()
+    console.rule("[bold magenta]Debate complete[/bold magenta]")
+    console.print(
+        f"[dim]{len(state.transcript)} messages across {state.max_rounds} rounds. "
+        f"Verdict synthesis coming in Phase 3.[/dim]"
+    )
     return 0
 
 
