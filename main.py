@@ -21,6 +21,7 @@ from agents.critic import review as critic_review
 from agents.fixer import fix as fixer_fix
 from agents.judge import synthesize as judge_synthesize
 from core.debate import run_debate
+from core.graph import get_mermaid_diagram, run_pipeline
 from core.models import ActionItem, AgentName, ChangeEntry, CriticReview, DebateMessage, FixerResult, ReviewItem, Verdict
 from core.modes import MAX_ROUNDS, ReviewMode
 
@@ -331,6 +332,86 @@ def run_fixer(code: str, verdict: Verdict, language: str | None, path: Path) -> 
     )
 
 
+# --- Full-graph (LangGraph end-to-end) ------------------------------------
+
+
+def _run_full_graph(
+    code: str,
+    language: str | None,
+    mode: ReviewMode,
+    args,
+    path: Path,
+) -> int:
+    """Run the entire pipeline through LangGraph in one shot.
+
+    Debate + Judge + Fixer all execute as graph nodes. The interactive
+    per-item fixer approval is skipped — all action items are applied
+    automatically. This demonstrates the full LangGraph state graph.
+    """
+    rounds = args.rounds if args.rounds is not None else MAX_ROUNDS[mode]
+    if rounds < 1:
+        console.print("[red]--rounds must be at least 1.[/red]")
+        return 1
+
+    run_verdict = True
+    run_fixer = args.fix or args.full_graph
+
+    console.print()
+    console.rule(
+        f"[bold magenta]LangGraph pipeline:[/bold magenta] {path.name}  "
+        f"([dim]{mode.value} mode, {rounds} rounds[/dim])"
+    )
+
+    listener = TerminalDebateListener()
+    try:
+        final = run_pipeline(
+            code=code,
+            language=language,
+            mode=mode,
+            max_rounds=rounds,
+            run_verdict=run_verdict,
+            run_fixer=run_fixer,
+            listener=listener,
+        )
+    except Exception as exc:
+        console.print(f"\n[red]Pipeline failed:[/red] {exc}")
+        return 2
+
+    console.print()
+    console.rule("[bold magenta]Debate complete[/bold magenta]")
+    console.print(f"[dim]{len(final['transcript'])} messages across {rounds} rounds.[/dim]")
+
+    if final.get("verdict"):
+        render_verdict(final["verdict"])
+
+    if final.get("fixer_result"):
+        result: FixerResult = final["fixer_result"]
+        if not result.changes_made or not result.changelog:
+            console.print()
+            console.print("[dim]The Fixer found no changes to apply.[/dim]")
+        else:
+            console.print()
+            console.rule("[bold green]The Fixer[/bold green]")
+            console.print()
+            console.print("[bold]Applied changes:[/bold]")
+            console.print()
+            render_diff(code, result.fixed_code, fromfile=str(path), tofile=f"{path.stem}_fixed{path.suffix}")
+            console.print()
+            render_fixer_changelog(result.changelog, final["verdict"].action_items)
+            out_path = path.parent / f"{path.stem}_fixed{path.suffix}"
+            out_path.write_text(result.fixed_code, encoding="utf-8")
+            console.print()
+            console.print(
+                Panel(
+                    f"[bold green]Fixed code written to:[/bold green] {out_path}\n"
+                    f"[dim]{len(result.changelog)} fix(es) applied (all approved automatically).[/dim]",
+                    border_style="green",
+                )
+            )
+
+    return 0
+
+
 # --- CLI entry -------------------------------------------------------------
 
 
@@ -338,7 +419,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Pair Programmer — two agents debate your code."
     )
-    parser.add_argument("file", type=Path, help="Path to the code file to review.")
+    parser.add_argument(
+        "file",
+        type=Path,
+        nargs="?",
+        help="Path to the code file to review. Not required when --graph-diagram is used.",
+    )
     parser.add_argument(
         "--mode",
         type=str,
@@ -372,7 +458,32 @@ def main() -> int:
         action="store_true",
         help="Print the source file before reviewing.",
     )
+    parser.add_argument(
+        "--graph-diagram",
+        action="store_true",
+        help="Print the LangGraph Mermaid diagram of the pipeline and exit.",
+    )
+    parser.add_argument(
+        "--full-graph",
+        action="store_true",
+        help=(
+            "Run the complete pipeline (debate + judge + fixer) through LangGraph "
+            "in one shot. Implies --verdict and --fix. Skips the interactive per-item "
+            "fixer approval — all action items are applied automatically."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.graph_diagram:
+        console.print()
+        console.rule("[bold magenta]LangGraph Pipeline — Mermaid Diagram[/bold magenta]")
+        console.print()
+        console.print(get_mermaid_diagram())
+        return 0
+
+    if args.file is None:
+        console.print("[red]A code file is required.[/red]  Usage: main.py <file> [options]")
+        return 1
 
     path: Path = args.file
     if not path.exists():
@@ -386,6 +497,9 @@ def main() -> int:
         console.print(Panel(Syntax(code, language or "text", line_numbers=True), title=str(path)))
 
     mode = ReviewMode(args.mode)
+
+    if args.full_graph:
+        return _run_full_graph(code, language, mode, args, path)
 
     if args.solo:
         with console.status("[bold]The Critic is reading your code...[/bold]", spinner="dots"):
