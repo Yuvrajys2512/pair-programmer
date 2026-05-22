@@ -44,6 +44,10 @@ class DebateState(BaseModel):
     transcript: list[DebateMessage] = Field(default_factory=list)
     max_rounds: int = 3
     mode: ReviewMode = ReviewMode.STANDARD
+    persona: Optional[str] = Field(
+        default=None,
+        description="Persona slug applied on top of the mode (e.g., 'mentor').",
+    )
 
     def get_initial_review(self) -> Optional[CriticReview]:
         """Return the parsed initial review if it has been recorded, else None."""

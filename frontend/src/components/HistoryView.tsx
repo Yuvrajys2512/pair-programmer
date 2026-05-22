@@ -46,7 +46,10 @@ export default function HistoryView({ onClose, onSelect }: Props) {
             {reviews.map((r) => (
               <div key={r.id} className="history-row" onClick={() => onSelect(r.id)}>
                 <span className={`status-badge ${r.status}`}>{r.status}</span>
-                <span className="lang-mode">{r.language || '?'} · {r.mode}</span>
+                <span className="lang-mode">
+                  {r.language || '?'} · {r.mode}
+                  {r.persona && <> · <span style={{ color: 'var(--accent)' }}>{r.persona}</span></>}
+                </span>
                 <span className="preview">{r.code_preview || '(empty)'}</span>
                 <span className="score-pill">
                   {r.score !== null ? `${r.score}/10` : '—'}

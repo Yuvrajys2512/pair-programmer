@@ -1,9 +1,10 @@
-import type { ReviewDetail, ReviewMode, ReviewSummary, SseEvent } from './types'
+import type { Persona, ReviewDetail, ReviewMode, ReviewSummary, SseEvent } from './types'
 
 export async function* streamReview(params: {
   code: string
   language: string | null
   mode: ReviewMode
+  persona?: string | null
   max_rounds?: number
   run_fixer?: boolean
   signal?: AbortSignal
@@ -15,6 +16,7 @@ export async function* streamReview(params: {
       code: params.code,
       language: params.language,
       mode: params.mode,
+      persona: params.persona ?? null,
       max_rounds: params.max_rounds ?? null,
       run_fixer: params.run_fixer ?? true,
     }),
@@ -59,5 +61,11 @@ export async function listReviews(): Promise<ReviewSummary[]> {
 export async function fetchReview(id: string): Promise<ReviewDetail> {
   const res = await fetch(`/api/reviews/${id}`)
   if (!res.ok) throw new Error(`Fetch failed: ${res.status}`)
+  return res.json()
+}
+
+export async function listPersonas(): Promise<Persona[]> {
+  const res = await fetch('/api/personas')
+  if (!res.ok) throw new Error(`Personas failed: ${res.status}`)
   return res.json()
 }

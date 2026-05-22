@@ -76,6 +76,7 @@ async def stream_pipeline(
     mode: ReviewMode,
     max_rounds: Optional[int],
     run_fixer: bool,
+    persona: Optional[str] = None,
 ) -> AsyncIterator[str]:
     from core.graph import run_pipeline
 
@@ -98,6 +99,7 @@ async def stream_pipeline(
                 run_verdict=True,
                 run_fixer=run_fixer,
                 listener=listener,
+                persona=persona,
             )
             verdict = final.get("verdict")
             fixer_result = final.get("fixer_result")

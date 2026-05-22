@@ -24,6 +24,7 @@ from core.debate import run_debate
 from core.graph import get_mermaid_diagram, run_pipeline
 from core.models import ActionItem, AgentName, ChangeEntry, CriticReview, DebateMessage, FixerResult, ReviewItem, Verdict
 from core.modes import MAX_ROUNDS, ReviewMode
+from core.personas import list_personas, validate_persona
 
 console = Console()
 
@@ -341,6 +342,7 @@ def _run_full_graph(
     mode: ReviewMode,
     args,
     path: Path,
+    persona: str | None = None,
 ) -> int:
     """Run the entire pipeline through LangGraph in one shot.
 
@@ -356,10 +358,11 @@ def _run_full_graph(
     run_verdict = True
     run_fixer = args.fix or args.full_graph
 
+    persona_suffix = f", persona: {persona}" if persona else ""
     console.print()
     console.rule(
         f"[bold magenta]LangGraph pipeline:[/bold magenta] {path.name}  "
-        f"([dim]{mode.value} mode, {rounds} rounds[/dim])"
+        f"([dim]{mode.value} mode, {rounds} rounds{persona_suffix}[/dim])"
     )
 
     listener = TerminalDebateListener()
@@ -372,6 +375,7 @@ def _run_full_graph(
             run_verdict=run_verdict,
             run_fixer=run_fixer,
             listener=listener,
+            persona=persona,
         )
     except Exception as exc:
         console.print(f"\n[red]Pipeline failed:[/red] {exc}")
@@ -472,7 +476,44 @@ def main() -> int:
             "fixer approval — all action items are applied automatically."
         ),
     )
+    parser.add_argument(
+        "--persona",
+        type=str,
+        default=None,
+        help="Persona overlay slug (e.g., 'mentor', 'security_auditor'). See --list-personas.",
+    )
+    parser.add_argument(
+        "--list-personas",
+        action="store_true",
+        help="List available personas and exit.",
+    )
     args = parser.parse_args()
+
+    if args.list_personas:
+        console.print()
+        console.rule("[bold magenta]Available personas[/bold magenta]")
+        console.print()
+        personas = list_personas()
+        if not personas:
+            console.print("[dim]No personas registered. Add files under agents/prompts/personas/.[/dim]")
+            return 0
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Slug", style="bold cyan")
+        table.add_column("Name")
+        table.add_column("Description")
+        for p in personas:
+            short = p.description if len(p.description) <= 80 else p.description[:77] + "…"
+            table.add_row(p.slug, p.name, short)
+        console.print(table)
+        console.print()
+        console.print("[dim]Use --persona <slug> to apply one.[/dim]")
+        return 0
+
+    try:
+        persona = validate_persona(args.persona)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        return 1
 
     if args.graph_diagram:
         console.print()
@@ -499,12 +540,12 @@ def main() -> int:
     mode = ReviewMode(args.mode)
 
     if args.full_graph:
-        return _run_full_graph(code, language, mode, args, path)
+        return _run_full_graph(code, language, mode, args, path, persona)
 
     if args.solo:
         with console.status("[bold]The Critic is reading your code...[/bold]", spinner="dots"):
             try:
-                result = critic_review(code=code, language=language, mode=mode)
+                result = critic_review(code=code, language=language, mode=mode, persona=persona)
             except Exception as exc:
                 console.print(f"[red]Review failed:[/red] {exc}")
                 return 2
@@ -517,10 +558,11 @@ def main() -> int:
         console.print("[red]--rounds must be at least 1.[/red]")
         return 1
 
+    persona_suffix = f", persona: {persona}" if persona else ""
     console.print()
     console.rule(
         f"[bold magenta]Debate begins:[/bold magenta] {path.name}  "
-        f"([dim]{mode.value} mode, {rounds} rounds[/dim])"
+        f"([dim]{mode.value} mode, {rounds} rounds{persona_suffix}[/dim])"
     )
 
     try:
@@ -530,6 +572,7 @@ def main() -> int:
             mode=mode,
             max_rounds=rounds,
             listener=TerminalDebateListener(),
+            persona=persona,
         )
     except Exception as exc:
         console.print(f"\n[red]Debate failed:[/red] {exc}")

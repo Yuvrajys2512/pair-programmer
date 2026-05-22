@@ -16,6 +16,7 @@ class Review(Base):
     code: Mapped[str] = mapped_column(Text, nullable=False)
     language: Mapped[Optional[str]] = mapped_column(String(32))
     mode: Mapped[str] = mapped_column(String(16), nullable=False)
+    persona: Mapped[Optional[str]] = mapped_column(String(64))
     rounds: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     score: Mapped[Optional[int]] = mapped_column(Integer)

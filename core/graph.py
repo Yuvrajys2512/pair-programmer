@@ -35,6 +35,7 @@ class PipelineState(TypedDict):
     code: str
     language: str | None
     mode: str                                         # ReviewMode.value
+    persona: str | None                               # persona slug, optional
     max_rounds: int
     current_round: int
     transcript: Annotated[list[DebateMessage], operator.add]   # append-only
@@ -52,6 +53,7 @@ def _to_debate_state(state: PipelineState) -> DebateState:
         transcript=list(state["transcript"]),
         max_rounds=state["max_rounds"],
         mode=ReviewMode(state["mode"]),
+        persona=state.get("persona"),
     )
 
 
@@ -72,6 +74,7 @@ def build_pipeline_graph(listener: DebateListener | None = None):
             state["code"],
             state.get("language"),
             ReviewMode(state["mode"]),
+            persona=state.get("persona"),
         )
         msg = DebateMessage(
             agent="CRITIC",
@@ -169,6 +172,7 @@ def run_pipeline(
     run_verdict: bool = True,
     run_fixer: bool = False,
     listener: DebateListener | None = None,
+    persona: str | None = None,
 ) -> PipelineState:
     """Run the full pipeline and return the final graph state.
 
@@ -185,6 +189,7 @@ def run_pipeline(
         "code": code,
         "language": language,
         "mode": mode.value,
+        "persona": persona,
         "max_rounds": rounds,
         "current_round": 0,
         "transcript": [],

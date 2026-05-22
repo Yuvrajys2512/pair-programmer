@@ -11,10 +11,12 @@ from web.storage import DebateMessageRow, FixRow, Review, VerdictRow
 
 
 def create_review(
-    db: Session, review_id: str, code: str, language: Optional[str], mode: str, rounds: int,
+    db: Session, review_id: str, code: str, language: Optional[str], mode: str,
+    rounds: int, persona: Optional[str] = None,
 ) -> Review:
     row = Review(
-        id=review_id, code=code, language=language, mode=mode, rounds=rounds, status="pending",
+        id=review_id, code=code, language=language, mode=mode,
+        persona=persona, rounds=rounds, status="pending",
     )
     db.add(row)
     db.commit()

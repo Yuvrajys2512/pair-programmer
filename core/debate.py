@@ -10,6 +10,7 @@ def run_debate(
     mode: ReviewMode = ReviewMode.STANDARD,
     max_rounds: int | None = None,
     listener: DebateListener | None = None,
+    persona: str | None = None,
 ) -> DebateState:
     """Run the debate loop via LangGraph and return the accumulated DebateState.
 
@@ -25,6 +26,7 @@ def run_debate(
         "code": code,
         "language": language,
         "mode": mode.value,
+        "persona": persona,
         "max_rounds": rounds,
         "current_round": 0,
         "transcript": [],
@@ -41,4 +43,5 @@ def run_debate(
         transcript=list(final["transcript"]),
         max_rounds=rounds,
         mode=mode,
+        persona=persona,
     )

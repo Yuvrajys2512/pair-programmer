@@ -53,10 +53,17 @@ export interface DebateTurn {
   streaming: boolean
 }
 
+export interface Persona {
+  slug: string
+  name: string
+  description: string
+}
+
 export interface ReviewSummary {
   id: string
   language: string | null
   mode: string
+  persona: string | null
   rounds: number
   status: string
   score: number | null

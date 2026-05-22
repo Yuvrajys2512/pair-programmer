@@ -7,6 +7,7 @@ import DebatePanel from './components/DebatePanel'
 import DiffView from './components/DiffView'
 import HistoryView from './components/HistoryView'
 import ModeSelector from './components/ModeSelector'
+import PersonaSelector from './components/PersonaSelector'
 import VerdictCard from './components/VerdictCard'
 import type {
   CriticReview, DebateTurn, FixResult, ReviewMode, Verdict,
@@ -38,6 +39,7 @@ export default function App() {
   const [code, setCode] = useState(STARTER_CODE)
   const [language, setLanguage] = useState<string>('python')
   const [mode, setMode] = useState<ReviewMode>('standard')
+  const [persona, setPersona] = useState<string | null>(null)
 
   const [turns, setTurns] = useState<DebateTurn[]>([])
   const [verdict, setVerdict] = useState<Verdict | null>(null)
@@ -64,7 +66,7 @@ export default function App() {
 
     try {
       for await (const ev of streamReview({
-        code, language, mode, run_fixer: true, signal: controller.signal,
+        code, language, mode, persona, run_fixer: true, signal: controller.signal,
       })) {
         switch (ev.type) {
           case 'turn_start':
@@ -136,7 +138,7 @@ export default function App() {
       setRunning(false)
       abortRef.current = null
     }
-  }, [code, language, mode, running])
+  }, [code, language, mode, persona, running])
 
   const stop = () => {
     abortRef.current?.abort()
@@ -150,6 +152,7 @@ export default function App() {
     if (detail.mode === 'roast' || detail.mode === 'standard' || detail.mode === 'deep') {
       setMode(detail.mode)
     }
+    setPersona(detail.persona)
 
     const replayed: DebateTurn[] = detail.messages.map((m) => {
       let initialReview: CriticReview | undefined = undefined
@@ -198,6 +201,7 @@ export default function App() {
             <option value="ruby">Ruby</option>
           </select>
           <ModeSelector mode={mode} onChange={setMode} disabled={running} />
+          <PersonaSelector value={persona} onChange={setPersona} disabled={running} />
           <button className="btn-ghost" onClick={() => setShowHistory(true)}>
             History
           </button>

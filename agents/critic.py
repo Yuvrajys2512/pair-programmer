@@ -4,24 +4,27 @@ from typing import Iterator
 from core.llm import complete_json, complete_stream
 from core.models import CriticReview, DebateState
 from core.modes import ReviewMode, apply_addendum
+from core.personas import apply_persona_addendum
 from core.text import number_lines
 from core.transcript import build_debate_user_prompt
 
 PROMPT_PATH = Path(__file__).parent / "prompts" / "critic_system.md"
 
 
-def _load_prompt(mode: ReviewMode = ReviewMode.STANDARD) -> str:
+def _load_prompt(mode: ReviewMode = ReviewMode.STANDARD, persona: str | None = None) -> str:
     base = PROMPT_PATH.read_text(encoding="utf-8")
-    return apply_addendum(base, mode, "CRITIC")
+    with_mode = apply_addendum(base, mode, "CRITIC")
+    return apply_persona_addendum(with_mode, persona, "CRITIC")
 
 
 def review(
     code: str,
     language: str | None = None,
     mode: ReviewMode = ReviewMode.STANDARD,
+    persona: str | None = None,
 ) -> CriticReview:
     """Initial structured review. Returns a parsed CriticReview."""
-    system_prompt = _load_prompt(mode)
+    system_prompt = _load_prompt(mode, persona)
     lang_hint = f" ({language})" if language else ""
     user_prompt = (
         f"## Mode: INITIAL REVIEW (structured JSON output)\n\n"
@@ -35,6 +38,6 @@ def review(
 
 def rebut_stream(state: DebateState, round_number: int) -> Iterator[str]:
     """Streamed prose response from the Critic during a debate turn (round >= 2)."""
-    system_prompt = _load_prompt(state.mode)
+    system_prompt = _load_prompt(state.mode, state.persona)
     user_prompt = build_debate_user_prompt(state, role="CRITIC", round_number=round_number)
     yield from complete_stream(system_prompt=system_prompt, user_prompt=user_prompt, temperature=0.7)

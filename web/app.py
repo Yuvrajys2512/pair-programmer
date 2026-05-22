@@ -8,7 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from web.api_models import DebateMessageOut, ReviewDetail, ReviewRequest, ReviewSummary
+from core.personas import list_personas, validate_persona
+from web.api_models import (
+    DebateMessageOut, PersonaOut, ReviewDetail, ReviewRequest, ReviewSummary,
+)
 from web.db import SessionLocal, init_db
 from web.persist import create_review, get_review, list_reviews
 from web.sse import stream_pipeline
@@ -44,9 +47,22 @@ def health() -> dict:
     return {"ok": True}
 
 
+@app.get("/api/personas", response_model=list[PersonaOut])
+def list_personas_endpoint() -> list[PersonaOut]:
+    return [
+        PersonaOut(slug=p.slug, name=p.name, description=p.description)
+        for p in list_personas()
+    ]
+
+
 @app.post("/api/reviews/stream")
 async def post_review_stream(req: ReviewRequest):
     """Create a review and stream the pipeline back as SSE."""
+    try:
+        persona = validate_persona(req.persona)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
     review_id = uuid.uuid4().hex
     # Persist the request up front so the row exists even if the client disconnects.
     with SessionLocal() as db:
@@ -57,6 +73,7 @@ async def post_review_stream(req: ReviewRequest):
             language=req.language,
             mode=req.mode.value,
             rounds=req.max_rounds or 0,  # filled in on start by sse generator
+            persona=persona,
         )
     return StreamingResponse(
         stream_pipeline(
@@ -66,6 +83,7 @@ async def post_review_stream(req: ReviewRequest):
             mode=req.mode,
             max_rounds=req.max_rounds,
             run_fixer=req.run_fixer,
+            persona=persona,
         ),
         media_type="text/event-stream",
         headers={
@@ -79,7 +97,8 @@ async def post_review_stream(req: ReviewRequest):
 def _to_summary(r) -> ReviewSummary:
     preview = (r.code.strip().splitlines() or [""])[0][:80]
     return ReviewSummary(
-        id=r.id, language=r.language, mode=r.mode, rounds=r.rounds,
+        id=r.id, language=r.language, mode=r.mode,
+        persona=r.persona, rounds=r.rounds,
         status=r.status, score=r.score, winner=r.winner,
         created_at=r.created_at, completed_at=r.completed_at,
         code_preview=preview,
@@ -129,7 +148,8 @@ def get_review_endpoint(review_id: str, db: Session = Depends(get_db)):
 
     preview = (r.code.strip().splitlines() or [""])[0][:80]
     return ReviewDetail(
-        id=r.id, language=r.language, mode=r.mode, rounds=r.rounds,
+        id=r.id, language=r.language, mode=r.mode,
+        persona=r.persona, rounds=r.rounds,
         status=r.status, score=r.score, winner=r.winner,
         created_at=r.created_at, completed_at=r.completed_at,
         code_preview=preview,

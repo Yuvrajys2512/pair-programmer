@@ -12,6 +12,7 @@ class ReviewRequest(BaseModel):
     code: str = Field(min_length=1)
     language: Optional[str] = None
     mode: ReviewMode = ReviewMode.STANDARD
+    persona: Optional[str] = None
     max_rounds: Optional[int] = Field(default=None, ge=1, le=10)
     run_fixer: bool = True
 
@@ -27,6 +28,7 @@ class ReviewSummary(BaseModel):
     id: str
     language: Optional[str]
     mode: str
+    persona: Optional[str]
     rounds: int
     status: str
     score: Optional[int]
@@ -42,3 +44,9 @@ class ReviewDetail(ReviewSummary):
     verdict: Optional[dict] = None
     fix: Optional[dict] = None
     error: Optional[str] = None
+
+
+class PersonaOut(BaseModel):
+    slug: str
+    name: str
+    description: str
