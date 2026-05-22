@@ -26,3 +26,14 @@ ENV/
 
 # OS
 Thumbs.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Database
+pairprog.db
+*.db-journal
+*.sqlite
+*.sqlite3
