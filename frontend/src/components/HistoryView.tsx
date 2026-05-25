@@ -30,17 +30,26 @@ export default function HistoryView({ onClose, onSelect }: Props) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h2>Review history</h2>
-          <button className="btn-ghost" onClick={onClose}>Close</button>
+          <h2>Review History</h2>
+          <button className="btn-ghost" onClick={onClose}>✕ Close</button>
         </div>
+
         {err && <div className="error-banner">{err}</div>}
-        {reviews === null && !err && <div className="empty">Loading…</div>}
+
+        {reviews === null && !err && (
+          <div className="empty" style={{ flex: 'none', padding: '32px 0' }}>
+            <p>Loading…</p>
+          </div>
+        )}
+
         {reviews !== null && reviews.length === 0 && (
-          <div className="empty">
+          <div className="empty" style={{ flex: 'none', padding: '32px 0' }}>
+            <div className="empty-graphic">📋</div>
             <h3>No reviews yet</h3>
             <p>Run a review and it'll show up here.</p>
           </div>
         )}
+
         {reviews !== null && reviews.length > 0 && (
           <div className="history-list">
             {reviews.map((r) => (
@@ -48,7 +57,9 @@ export default function HistoryView({ onClose, onSelect }: Props) {
                 <span className={`status-badge ${r.status}`}>{r.status}</span>
                 <span className="lang-mode">
                   {r.language || '?'} · {r.mode}
-                  {r.persona && <> · <span style={{ color: 'var(--accent)' }}>{r.persona}</span></>}
+                  {r.persona && (
+                    <> · <span style={{ color: 'var(--accent-bright)' }}>{r.persona}</span></>
+                  )}
                 </span>
                 <span className="preview">{r.code_preview || '(empty)'}</span>
                 <span className="score-pill">

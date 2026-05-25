@@ -1,48 +1,147 @@
 :root {
-  --bg: #0f1117;
-  --panel: #161922;
-  --panel-2: #1d212d;
-  --border: #2a2f3d;
-  --text: #e7ecf3;
-  --text-dim: #9aa3b2;
-  --accent: #8b5cf6;
-  --critic: #ef4444;
-  --advocate: #3b82f6;
-  --judge: #f59e0b;
-  --good: #22c55e;
-  --bad: #ef4444;
-  --warn: #eab308;
-  --code-bg: #0b0d13;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Backgrounds */
+  --bg:        #07090f;
+  --surface:   #0c1020;
+  --surface-2: #111828;
+  --surface-3: #182035;
+
+  /* Borders */
+  --border:       rgba(148, 163, 210, 0.08);
+  --border-dim:   rgba(148, 163, 210, 0.14);
+  --border-glow:  rgba(148, 163, 210, 0.22);
+
+  /* Text */
+  --text:   #e1e7f5;
+  --text-2: #7f90b8;
+  --text-3: #48567a;
+
+  /* Brand accent — purple */
+  --accent:        #8b5cf6;
+  --accent-bright: #a78bfa;
+  --accent-dim:    rgba(139, 92, 246, 0.12);
+
+  /* Agent colors */
+  --critic:       #f43f5e;
+  --critic-dim:   rgba(244, 63, 94, 0.09);
+  --critic-glow:  rgba(244, 63, 94, 0.35);
+
+  --advocate:       #3b82f6;
+  --advocate-dim:   rgba(59, 130, 246, 0.09);
+  --advocate-glow:  rgba(59, 130, 246, 0.35);
+
+  --judge:       #f59e0b;
+  --judge-dim:   rgba(245, 158, 11, 0.09);
+  --judge-glow:  rgba(245, 158, 11, 0.35);
+
+  --good:      #10b981;
+  --good-dim:  rgba(16, 185, 129, 0.09);
+  --good-glow: rgba(16, 185, 129, 0.35);
+
+  --bad:  #f43f5e;
+  --warn: #f59e0b;
+
+  --code-bg: #040609;
+
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color-scheme: dark;
 }
 
-* { box-sizing: border-box; }
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body, #root {
-  margin: 0;
-  padding: 0;
   height: 100%;
-  background: var(--bg);
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 35% at 50% -5%, rgba(124, 58, 237, 0.10) 0%, transparent 100%),
+    linear-gradient(rgba(100, 120, 210, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(100, 120, 210, 0.028) 1px, transparent 1px);
+  background-size: 100% 100%, 44px 44px, 44px 44px;
+  background-attachment: fixed;
   color: var(--text);
 }
 
-button {
-  font: inherit;
-  cursor: pointer;
-}
-
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
+button { font: inherit; cursor: pointer; }
+a { color: var(--accent-bright); text-decoration: none; }
 
 code, pre, .mono {
   font-family: 'JetBrains Mono', 'Fira Code', Consolas, Menlo, monospace;
   font-size: 13px;
 }
 
-::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2a2f3d; border-radius: 6px; }
-::-webkit-scrollbar-thumb:hover { background: #3a4050; }
+::-webkit-scrollbar-thumb { background: rgba(120, 140, 200, 0.18); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(120, 140, 200, 0.35); }
+
+/* ── Global Keyframes ── */
+
+@keyframes pulse-dot {
+  0%, 100% {
+    box-shadow: 0 0 6px var(--accent-bright), 0 0 14px var(--accent-bright);
+  }
+  50% {
+    box-shadow: 0 0 10px var(--accent-bright), 0 0 28px var(--accent-bright), 0 0 44px rgba(167, 139, 250, 0.35);
+  }
+}
+
+@keyframes border-flow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes shimmer {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+@keyframes progress-flow {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(18px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes slide-left {
+  from { transform: translateX(-20px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+@keyframes slide-right {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { transform: scale(0.93); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes cursor-pulse {
+  0%, 45%  { opacity: 1; }
+  55%, 100% { opacity: 0; }
+}
+
+@keyframes live-ping {
+  0%   { transform: scale(1);    opacity: 0.8; }
+  70%  { transform: scale(2.2);  opacity: 0; }
+  100% { transform: scale(2.2);  opacity: 0; }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}

@@ -19,20 +19,18 @@ export default function PersonaSelector({ value, onChange, disabled }: Props) {
   }, [])
 
   const selected = personas?.find((p) => p.slug === value)
+
   return (
     <select
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value || null)}
       disabled={disabled || personas === null}
-      className="btn-ghost"
-      style={{ background: 'var(--panel-2)', minWidth: 160 }}
+      className="persona-select"
       title={selected ? selected.description : 'Persona overlay (optional)'}
     >
       <option value="">Persona: default</option>
       {personas?.map((p) => (
-        <option key={p.slug} value={p.slug}>
-          {p.name}
-        </option>
+        <option key={p.slug} value={p.slug}>{p.name}</option>
       ))}
     </select>
   )

@@ -6,10 +6,10 @@ interface Props {
   disabled?: boolean
 }
 
-const MODES: { value: ReviewMode; label: string; rounds: number }[] = [
-  { value: 'roast', label: 'Roast', rounds: 2 },
-  { value: 'standard', label: 'Standard', rounds: 3 },
-  { value: 'deep', label: 'Deep', rounds: 5 },
+const MODES: { value: ReviewMode; label: string; icon: string; rounds: number }[] = [
+  { value: 'roast',    label: 'Roast',    icon: '🔥', rounds: 2 },
+  { value: 'standard', label: 'Standard', icon: '⚡', rounds: 3 },
+  { value: 'deep',     label: 'Deep',     icon: '🔬', rounds: 5 },
 ]
 
 export default function ModeSelector({ mode, onChange, disabled }: Props) {
@@ -23,7 +23,7 @@ export default function ModeSelector({ mode, onChange, disabled }: Props) {
           disabled={disabled}
           title={`${m.rounds} rounds`}
         >
-          {m.label}
+          {m.icon} {m.label}
         </button>
       ))}
     </div>

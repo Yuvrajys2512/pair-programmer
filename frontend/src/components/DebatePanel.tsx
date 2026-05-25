@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react'
 import type { CriticReview, DebateTurn } from '../types'
 
 interface Props {
@@ -24,34 +23,38 @@ function InitialReview({ review }: { review: CriticReview }) {
   )
 }
 
+const AVATARS: Record<string, string> = { CRITIC: 'C', ADVOCATE: 'A' }
+
 export default function DebatePanel({ turns }: Props) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  // Auto-scroll to bottom as new chunks arrive
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    el.scrollTop = el.scrollHeight
-  }, [turns])
-
   if (turns.length === 0) {
     return (
       <div className="empty">
-        <h3>Waiting for the debate to begin…</h3>
-        <p>Paste code on the left, pick a mode, hit Run.</p>
+        <div className="empty-graphic">⚔</div>
+        <h3>Ready to review</h3>
+        <p>
+          Paste your code on the left, pick a mode, and hit{' '}
+          <strong style={{ color: 'var(--accent-bright)' }}>Run Review</strong>.
+        </p>
+        <div className="empty-agents">
+          <span className="empty-critic">Critic</span>
+          <span className="vs">vs</span>
+          <span className="empty-advocate">Advocate</span>
+        </div>
       </div>
     )
   }
 
   return (
-    <div ref={scrollRef} className="debate-scroll">
+    <>
       {turns.map((t, i) => (
         <div key={i} className={`turn ${t.agent.toLowerCase()}`}>
           <div className="turn-header">
+            <span className="turn-avatar">{AVATARS[t.agent]}</span>
+            <span className="turn-agent-name">{t.agent}</span>
             <span className="round-badge">Round {t.round}</span>
-            <span>{t.agent}</span>
-            {t.isInitial && <span className="round-badge">opening review</span>}
+            {t.isInitial && <span className="round-badge">Opening</span>}
           </div>
+
           {t.isInitial && t.initialReview ? (
             <InitialReview review={t.initialReview} />
           ) : (
@@ -62,6 +65,6 @@ export default function DebatePanel({ turns }: Props) {
           )}
         </div>
       ))}
-    </div>
+    </>
   )
 }

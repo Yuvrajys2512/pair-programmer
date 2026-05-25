@@ -49,6 +49,12 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
+  const debateScrollRef = useRef<HTMLDivElement | null>(null)
+
+  const scrollToBottom = () => {
+    const el = debateScrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }
 
   const reset = () => {
     setTurns([])
@@ -72,14 +78,9 @@ export default function App() {
           case 'turn_start':
             setTurns((prev) => [
               ...prev,
-              {
-                agent: ev.agent,
-                round: ev.round,
-                isInitial: ev.is_initial,
-                content: '',
-                streaming: true,
-              },
+              { agent: ev.agent, round: ev.round, isInitial: ev.is_initial, content: '', streaming: true },
             ])
+            setTimeout(scrollToBottom, 50)
             break
           case 'chunk':
             setTurns((prev) => {
@@ -89,6 +90,7 @@ export default function App() {
               next[next.length - 1] = { ...last, content: last.content + ev.text }
               return next
             })
+            scrollToBottom()
             break
           case 'turn_complete':
             setTurns((prev) => {
@@ -97,23 +99,15 @@ export default function App() {
               const last = next[next.length - 1]
               let initialReview: CriticReview | undefined = undefined
               if (ev.is_initial) {
-                try {
-                  initialReview = JSON.parse(ev.content) as CriticReview
-                } catch (e) {
-                  console.error('Failed to parse initial review JSON', e)
-                }
+                try { initialReview = JSON.parse(ev.content) as CriticReview } catch { /* ignore */ }
               }
-              next[next.length - 1] = {
-                ...last,
-                content: ev.content,
-                streaming: false,
-                initialReview,
-              }
+              next[next.length - 1] = { ...last, content: ev.content, streaming: false, initialReview }
               return next
             })
             break
           case 'verdict':
             setVerdict(ev.verdict)
+            setTimeout(scrollToBottom, 50)
             break
           case 'fix':
             setFix({
@@ -122,6 +116,7 @@ export default function App() {
               changes_made: ev.changes_made,
               changelog: ev.changelog,
             })
+            setTimeout(scrollToBottom, 50)
             break
           case 'error':
             setError(ev.message)
@@ -140,18 +135,14 @@ export default function App() {
     }
   }, [code, language, mode, persona, running])
 
-  const stop = () => {
-    abortRef.current?.abort()
-  }
+  const stop = () => abortRef.current?.abort()
 
   const loadHistory = async (id: string) => {
     setShowHistory(false)
     const detail = await fetchReview(id)
     setCode(detail.code)
     if (detail.language) setLanguage(detail.language)
-    if (detail.mode === 'roast' || detail.mode === 'standard' || detail.mode === 'deep') {
-      setMode(detail.mode)
-    }
+    if (detail.mode === 'roast' || detail.mode === 'standard' || detail.mode === 'deep') setMode(detail.mode)
     setPersona(detail.persona)
 
     const replayed: DebateTurn[] = detail.messages.map((m) => {
@@ -170,81 +161,104 @@ export default function App() {
     })
     setTurns(replayed)
     setVerdict(detail.verdict)
-    setFix(detail.fix
-      ? { ...detail.fix, original_code: detail.fix.original_code ?? detail.code }
-      : null)
+    setFix(detail.fix ? { ...detail.fix, original_code: detail.fix.original_code ?? detail.code } : null)
     setError(detail.error)
   }
 
   return (
-    <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <span className="dot" />
-          <span>PAIR PROGRAMMER</span>
-        </div>
-        <div className="topbar-actions">
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            disabled={running}
-            className="btn-ghost"
-            style={{ background: 'var(--panel-2)' }}
-          >
-            <option value="python">Python</option>
-            <option value="javascript">JavaScript</option>
-            <option value="typescript">TypeScript</option>
-            <option value="go">Go</option>
-            <option value="rust">Rust</option>
-            <option value="java">Java</option>
-            <option value="cpp">C++</option>
-            <option value="ruby">Ruby</option>
-          </select>
-          <ModeSelector mode={mode} onChange={setMode} disabled={running} />
-          <PersonaSelector value={persona} onChange={setPersona} disabled={running} />
-          <button className="btn-ghost" onClick={() => setShowHistory(true)}>
-            History
-          </button>
-          {running ? (
-            <button className="btn" onClick={stop} style={{ background: 'var(--bad)' }}>
-              Stop
-            </button>
-          ) : (
-            <button className="btn" onClick={run} disabled={!code.trim()}>
-              {'▶'} Run review
-            </button>
-          )}
-        </div>
-      </div>
+    <>
+      {running && <div className="progress-bar" />}
 
-      <div className="split">
-        <div className="left">
-          <div className="section-header">
-            <span>Code</span>
-            <span style={{ color: 'var(--text-dim)' }}>
-              {code.split('\n').length} lines
-            </span>
+      <div className="app">
+        {/* ── Topbar ── */}
+        <div className="topbar">
+          <div className="brand">
+            <div className="brand-icon">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M5 3L2 8L5 13" stroke="#a78bfa" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M11 3L14 8L11 13" stroke="#60a5fa" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9.5 2L6.5 14" stroke="#818cf8" strokeWidth="1.3" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <span className="brand-text">Pair Programmer</span>
           </div>
-          <div className="editor-wrap">
-            <CodeEditor
-              code={code}
-              onChange={setCode}
-              language={language}
-              readOnly={running}
-            />
+
+          <div className="topbar-actions">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              disabled={running}
+              className="topbar-select"
+            >
+              <option value="python">Python</option>
+              <option value="javascript">JavaScript</option>
+              <option value="typescript">TypeScript</option>
+              <option value="go">Go</option>
+              <option value="rust">Rust</option>
+              <option value="java">Java</option>
+              <option value="cpp">C++</option>
+              <option value="ruby">Ruby</option>
+            </select>
+
+            <ModeSelector mode={mode} onChange={setMode} disabled={running} />
+            <PersonaSelector value={persona} onChange={setPersona} disabled={running} />
+
+            <button className="btn-ghost" onClick={() => setShowHistory(true)}>
+              History
+            </button>
+
+            {running ? (
+              <button className="btn stop" onClick={stop}>■ Stop</button>
+            ) : (
+              <button className="btn" onClick={run} disabled={!code.trim()}>
+                ▶ Run Review
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="right">
-          <div className="section-header">
-            <span>Debate</span>
-            {running && <span style={{ color: 'var(--accent)' }}>{'●'} live</span>}
+        {/* ── Split panels ── */}
+        <div className="split">
+          {/* Left — code editor */}
+          <div className="left">
+            <div className="section-header">
+              <span className="hd-label">
+                <span className="hd-icon">{'</>'}</span>
+                Code Editor
+              </span>
+              <span style={{ color: 'var(--text-3)', fontSize: 11 }}>
+                {code.split('\n').length} lines
+              </span>
+            </div>
+            <div className="editor-wrap">
+              <CodeEditor code={code} onChange={setCode} language={language} readOnly={running} />
+            </div>
           </div>
-          <div className="debate-scroll">
-            {error && <div className="error-banner">{error}</div>}
-            <DebatePanel turns={turns} />
-            {verdict && <VerdictCard verdict={verdict} />}
-            {fix && <DiffView fix={fix} />}
+
+          {/* Right — debate */}
+          <div className="right">
+            <div className="section-header">
+              <span className="hd-label">
+                <span className="hd-icon">⚔</span>
+                Debate Arena
+              </span>
+              {running && (
+                <span className="live-indicator">
+                  <span className="live-dot">
+                    <span className="live-dot-ring" />
+                    <span className="live-dot-core" />
+                  </span>
+                  LIVE
+                </span>
+              )}
+            </div>
+
+            <div className="debate-scroll" ref={debateScrollRef}>
+              {error && <div className="error-banner">{error}</div>}
+              <DebatePanel turns={turns} />
+              {verdict && <VerdictCard verdict={verdict} />}
+              {fix && <DiffView fix={fix} />}
+            </div>
           </div>
         </div>
       </div>
@@ -252,6 +266,6 @@ export default function App() {
       {showHistory && (
         <HistoryView onClose={() => setShowHistory(false)} onSelect={loadHistory} />
       )}
-    </div>
+    </>
   )
 }
