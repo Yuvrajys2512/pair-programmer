@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fight Night — Pair Programmer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg:#0a0510; --crit:#ff2d55; --crit2:#ff6b35; --adv:#2d8fff; --adv2:#00e5ff;
+  --gold:#ffd60a; --text:#f4ecff; --text-2:#9a87b5;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;position:relative}
+body::before{content:"";position:fixed;inset:0;z-index:0;
+  background:
+   radial-gradient(ellipse 60% 70% at 12% 40%,rgba(255,45,85,.16),transparent 60%),
+   radial-gradient(ellipse 60% 70% at 88% 40%,rgba(45,143,255,.16),transparent 60%),
+   repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,.012) 3px,transparent 4px)}
+.grid{position:fixed;left:0;right:0;bottom:0;height:42%;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(255,45,85,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(45,143,255,.10) 1px,transparent 1px);
+  background-size:44px 44px;transform:perspective(420px) rotateX(62deg);transform-origin:bottom;mask-image:linear-gradient(transparent,#000 70%)}
+
+.wrap{position:relative;z-index:2;height:100vh;display:flex;flex-direction:column;padding:16px 28px 22px}
+.brandbar{display:flex;justify-content:space-between;align-items:center}
+.brandbar .b{font:400 22px 'Bebas Neue';letter-spacing:4px;color:var(--gold);text-shadow:0 0 18px rgba(255,214,10,.5)}
+.brandbar .s{font:500 11px Inter;color:var(--text-2);letter-spacing:1px}
+
+/* HP bars */
+.hpbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:18px;margin-top:14px}
+.fighter{display:flex;flex-direction:column;gap:6px}
+.fighter.r{align-items:flex-end}
+.fname{font:400 30px 'Bebas Neue';letter-spacing:2px;line-height:1;display:flex;align-items:center;gap:10px}
+.fighter.l .fname{color:var(--crit)}.fighter.r .fname{color:var(--adv)}
+.fname .ic{font-size:22px}
+.fsub{font:600 10px Inter;letter-spacing:1px;text-transform:uppercase;color:var(--text-2)}
+.hp{width:100%;height:20px;border-radius:6px;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.14);overflow:hidden;position:relative}
+.hp .v{position:absolute;top:0;bottom:0;height:100%;transition:width .6s cubic-bezier(.22,1,.36,1)}
+.fighter.l .hp .v{right:0;background:linear-gradient(90deg,var(--crit2),var(--crit))}
+.fighter.r .hp .v{left:0;background:linear-gradient(90deg,var(--adv),var(--adv2))}
+.hp .label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 11px 'JetBrains Mono';letter-spacing:1px;text-shadow:0 1px 2px #000}
+
+.vsbadge{font:400 40px 'Bebas Neue';color:var(--gold);text-shadow:0 0 24px rgba(255,214,10,.6);letter-spacing:2px}
+
+/* combo + round announcer */
+.announce{position:fixed;top:34%;left:0;right:0;z-index:25;text-align:center;pointer-events:none}
+.announce .big{font:400 92px 'Bebas Neue';letter-spacing:6px;opacity:0;transform:scale(1.4);display:inline-block;
+  background:linear-gradient(180deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  text-shadow:0 0 40px rgba(255,214,10,.4)}
+.announce .big.go{animation:announce 1.1s cubic-bezier(.16,1,.3,1)}
+@keyframes announce{0%{opacity:0;transform:scale(1.5)}20%{opacity:1;transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:scale(.9)}}
+
+.combo{position:fixed;top:30%;right:6%;z-index:24;text-align:right;opacity:0;transition:opacity .3s}
+.combo.show{opacity:1}
+.combo .n{font:400 70px 'Bebas Neue';color:var(--crit);line-height:.8;text-shadow:0 0 24px var(--crit)}
+.combo .t{font:700 13px Inter;letter-spacing:3px;text-transform:uppercase;color:var(--crit2)}
+
+/* arena body */
+.body{flex:1;display:grid;grid-template-columns:300px 1fr;gap:22px;min-height:0;margin-top:14px}
+.code{background:rgba(8,4,14,.7);border:2px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.code .hd{padding:8px 14px;font:400 16px 'Bebas Neue';letter-spacing:2px;color:var(--gold);border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center}
+.code .hd span:last-child{font:500 10px Inter;color:var(--text-2);letter-spacing:1px}
+.code pre{flex:1;overflow:auto;padding:12px;margin:0;font:400 11.5px 'JetBrains Mono';line-height:1.7;color:#cbbde0}
+.kw{color:#ff79c6}.fn{color:#6cb6ff}.str{color:#a6e22e}.ln{color:#4a3a5e;display:inline-block;width:20px;user-select:none}
+
+.feed{overflow-y:auto;display:flex;flex-direction:column;gap:11px;padding-right:4px;min-height:0}
+.hit{border-radius:12px;padding:12px 15px;font-size:13px;line-height:1.55;white-space:pre-wrap;position:relative;
+  animation:smash .4s cubic-bezier(.16,1,.3,1)}
+@keyframes smash{0%{transform:scale(.85) translateY(10px);opacity:0}60%{transform:scale(1.02)}100%{transform:scale(1);opacity:1}}
+.hit.c{background:linear-gradient(135deg,rgba(255,45,85,.14),rgba(8,4,14,.6));border:2px solid rgba(255,45,85,.4);box-shadow:0 0 22px rgba(255,45,85,.18)}
+.hit.a{background:linear-gradient(135deg,rgba(45,143,255,.14),rgba(8,4,14,.6));border:2px solid rgba(45,143,255,.4);box-shadow:0 0 22px rgba(45,143,255,.18)}
+.hit .h{font:400 19px 'Bebas Neue';letter-spacing:2px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.hit.c .h{color:var(--crit)}.hit.a .h{color:var(--adv)}
+.hit .dmg{margin-left:auto;font:400 22px 'Bebas Neue';letter-spacing:1px}
+.hit.c .dmg{color:var(--crit2)}.hit.a .dmg{color:var(--adv2)}
+.caret{display:inline-block;width:2px;height:14px;background:currentColor;vertical-align:text-bottom;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.pulse{align-self:center;font:400 18px 'Bebas Neue';letter-spacing:4px;color:var(--text-2)}
+
+.foot{display:flex;justify-content:center;align-items:center;gap:14px;margin-top:14px}
+.fight{font:400 24px 'Bebas Neue';letter-spacing:4px;color:#0a0510;border:none;cursor:pointer;padding:11px 44px;border-radius:10px;
+  background:linear-gradient(135deg,var(--gold),var(--crit2));box-shadow:0 0 34px rgba(255,214,10,.5);transition:transform .12s,box-shadow .25s}
+.fight:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 0 52px rgba(255,214,10,.7)}
+.fight:disabled{opacity:.4;cursor:not-allowed}
+.hint{font:500 11px Inter;color:var(--text-2)}
+
+/* KO / verdict */
+.vo{position:fixed;inset:0;z-index:40;display:none;place-items:center;background:radial-gradient(ellipse,rgba(10,5,16,.92),rgba(10,5,16,.99));backdrop-filter:blur(10px)}
+.vo.show{display:grid}
+.ko{font:400 150px 'Bebas Neue';letter-spacing:10px;color:var(--gold);text-shadow:0 0 60px rgba(255,214,10,.6);animation:koin .6s cubic-bezier(.16,1,.3,1);text-align:center}
+@keyframes koin{0%{transform:scale(2.5);opacity:0}50%{opacity:1}100%{transform:scale(1)}}
+.vcard{text-align:center;width:min(560px,92vw)}
+.vwin{font:400 34px 'Bebas Neue';letter-spacing:3px;color:var(--crit);margin:6px 0}
+.vscore{font:700 14px 'JetBrains Mono';color:var(--text-2);letter-spacing:2px;margin-bottom:18px}
+.vscore b{color:var(--gold);font-size:18px}
+.vacts{text-align:left;max-height:34vh;overflow:auto}
+.vact{padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;margin-bottom:7px;font-size:13px;display:grid;grid-template-columns:auto 1fr;gap:12px;animation:smash .5s both}
+.vact .p{font:400 20px 'Bebas Neue';color:var(--gold);letter-spacing:1px}
+.vagain{margin-top:20px;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.16);color:var(--text);padding:10px 28px;border-radius:10px;font:400 18px 'Bebas Neue';letter-spacing:2px;cursor:pointer}
+
+@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-7px,4px)}50%{transform:translate(8px,-5px)}75%{transform:translate(-5px,-4px)}}
+body.shake .wrap{animation:shake .35s}
+.flash{position:fixed;inset:0;z-index:35;opacity:0;pointer-events:none}
+.flash.go{animation:fl .35s}
+@keyframes fl{0%{opacity:.25}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="grid"></div>
+<div class="flash" id="flash"></div>
+
+<div class="wrap">
+  <div class="brandbar"><div class="b">⚔ PAIR PROGRAMMER · FIGHT NIGHT</div><div class="s">demo · canned bout · no backend</div></div>
+
+  <div class="hpbar">
+    <div class="fighter l">
+      <div class="fname"><span class="ic">🔥</span>THE CRITIC</div>
+      <div class="hp"><div class="v" id="hp-crit" style="width:100%"></div><span class="label" id="lbl-crit">ATTACKER</span></div>
+      <div class="fsub">brings the pain</div>
+    </div>
+    <div class="vsbadge">VS</div>
+    <div class="fighter r">
+      <div class="fname">THE ADVOCATE<span class="ic">🛡️</span></div>
+      <div class="hp"><div class="v" id="hp-adv" style="width:100%"></div><span class="label" id="lbl-adv">CODE INTEGRITY</span></div>
+      <div class="fsub">takes the hits</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="code">
+      <div class="hd"><span>📄 THE CONTENDER</span><span>get_user.py</span></div>
+      <pre id="code"></pre>
+    </div>
+    <div class="feed" id="feed"><div class="pulse" style="margin:auto 0">press FIGHT to start the bout</div></div>
+  </div>
+
+  <div class="foot"><button class="fight" id="fight">▶ FIGHT</button><span class="hint">roast mode · esports treatment</span></div>
+</div>
+
+<div class="announce"><span class="big" id="ann"></span></div>
+<div class="combo" id="combo"><div class="n" id="comboN">0</div><div class="t">HIT COMBO</div></div>
+
+<div class="vo" id="vo">
+  <div class="vcard">
+    <div class="ko" id="ko">K.O.</div>
+    <div class="vwin" id="vwin"></div>
+    <div class="vscore" id="vscore"></div>
+    <div class="vacts" id="vacts"></div>
+    <button class="vagain" id="vagain">↺ REMATCH</button>
+  </div>
+</div>
+
+<script>
+const CODE=[['def ','kw'],['get_user','fn'],['(user_id):','t'],['\n'],
+['    query = ','t'],['"...WHERE id = "','str'],[' + str(user_id)','t'],['\n'],
+['    ','t'],['return','kw'],[' db.execute(query)','t'],['\n\n'],
+['def ','kw'],['load_config','fn'],['(path):','t'],['\n'],
+['    ','t'],['try','kw'],[': ','t'],['return','kw'],[' ','t'],['eval','fn'],['(open(path).read())','t'],['\n'],
+['    ','t'],['except','kw'],[': ','t'],['return','kw'],[' None','t'],['\n']];
+
+// roast bout — critic lands big hits, advocate barely defends
+const BOUT={winner:'THE CRITIC',score:18,
+ turns:[
+  {who:'c',name:'CRITIC',hit:'SQL INJECTION',dmg:-34,text:"String-concat SQL in 2026? Bold. Little Bobby Tables just walked in and DROP'd your whole database. This isn't a bug — it's a public invitation."},
+  {who:'a',name:'ADVOCATE',hit:'WEAK BLOCK',dmg:+6,text:"Okay the SQL is indefensible, I concede it — but the function structure is clea—"},
+  {who:'c',name:'CRITIC',hit:'eval() COMBO',dmg:-30,text:"eval() on a FILE?! You didn't write a config loader, you built a portal to a remote shell. Any file becomes arbitrary code. CRITICAL doesn't even cover it."},
+  {who:'a',name:'ADVOCATE',hit:'STAGGERED',dmg:+3,text:"...I'm a defense attorney, not a magician. I can't defend that one either."},
+  {who:'c',name:'CRITIC',hit:'except: FINISHER',dmg:-18,text:"And the bare except just swallows every error like a smoke detector with no battery. Building's on fire, returns None. FATALITY."},
+ ],
+ actions:[
+  {p:'P0',t:'Parameterize the query before someone DROPs your table for sport.'},
+  {p:'P0',t:'Delete eval(). Use ast.literal_eval or a real config parser.'},
+  {p:'P1',t:'Name your exceptions — a bare except is a coward.'},
+ ]};
+
+// paint code
+const codeEl=document.getElementById('code');
+let html='',ln=1,start=true;
+for(const [txt,cls] of CODE){
+  if(txt.includes('\n')){html+=txt;ln+=(txt.match(/\n/g)||[]).length;start=true;continue;}
+  if(start){html+=`<span class="ln">${String(ln).padStart(2,' ')}</span> `;start=false;}
+  const c=['kw','fn','str'].includes(cls)?cls:'';
+  const e=txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  html+=c?`<span class="${c}">${e}</span>`:e;
+}
+codeEl.innerHTML=html;
+
+const $=id=>document.getElementById(id), F=$('feed'), sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let busy=false, advHp=100, combo=0;
+
+function announce(txt,color){const a=$('ann');a.textContent=txt;if(color)a.style.webkitTextFillColor=color;a.classList.remove('go');void a.offsetWidth;a.classList.add('go');}
+function shake(c){document.body.classList.add('shake');const f=$('flash');f.style.background=c;f.classList.add('go');setTimeout(()=>{document.body.classList.remove('shake');f.classList.remove('go');},360);}
+function showCombo(n){const c=$('combo');$('comboN').textContent=n;c.classList.add('show');}
+function hideCombo(){$('combo').classList.remove('show');}
+
+async function type(el,text){el.innerHTML='<span class="caret"></span>';const c=el.querySelector('.caret');
+  for(let i=0;i<text.length;i++){c.insertAdjacentText('beforebegin',text[i]);if(i%2===0)F.scrollTop=F.scrollHeight;await sleep(11);}c.remove();}
+function pulse(t){const d=document.createElement('div');d.className='pulse';d.textContent=t;F.appendChild(d);F.scrollTop=F.scrollHeight;}
+function hitEl(turn){const d=document.createElement('div');d.className='hit '+turn.who;
+  d.innerHTML=`<div class="h">${turn.who==='c'?'🔥':'🛡️'} ${turn.name} · ${turn.hit}<span class="dmg">${turn.dmg<0?turn.dmg:'+'+turn.dmg} HP</span></div><div class="bd"></div>`;
+  F.appendChild(d);F.scrollTop=F.scrollHeight;return d.querySelector('.bd');}
+
+async function run(){
+  if(busy)return;busy=true;$('fight').disabled=true;F.innerHTML='';advHp=100;combo=0;
+  $('hp-adv').style.width='100%';$('lbl-adv').textContent='100%';
+  announce('ROUND 1','');await sleep(900);
+  for(let i=0;i<BOUT.turns.length;i++){
+    const turn=BOUT.turns[i];
+    await type(hitEl(turn),turn.text);
+    advHp=Math.max(0,advHp+turn.dmg);
+    $('hp-adv').style.width=advHp+'%';$('lbl-adv').textContent=advHp+'%';
+    if(turn.who==='c'){combo++;showCombo(combo);shake('var(--crit)');}
+    else{hideCombo();}
+    if(turn.hit.includes('FINISHER')){announce('FINISH!','#ff6b35');}
+    await sleep(650);
+  }
+  hideCombo();await sleep(400);
+  // KO
+  $('vo').classList.add('show');$('ko').textContent=advHp<=20?'K.O.':'DECISION';
+  shake('var(--gold)');await sleep(700);
+  $('vwin').textContent='WINNER — '+BOUT.winner;
+  $('vscore').innerHTML=`final code score · <b>${BOUT.score}</b> / 100`;
+  const va=$('vacts');va.innerHTML='';
+  BOUT.actions.forEach((a,i)=>{const d=document.createElement('div');d.className='vact';d.style.animationDelay=(i*.12)+'s';d.innerHTML=`<span class="p">${a.p}</span><span>${a.t}</span>`;va.appendChild(d);});
+  busy=false;
+}
+$('fight').onclick=run;
+$('vagain').onclick=()=>{$('vo').classList.remove('show');F.innerHTML='<div class="pulse" style="margin:auto 0">press FIGHT to start the bout</div>';$('fight').disabled=false;setTimeout(run,250);};
+</script>
+</body>
+</html>

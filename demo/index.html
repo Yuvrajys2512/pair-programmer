@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pair Programmer — Visual Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{--bg:#06070d;--text:#e1e7f5;--text-2:#8092ba;--text-3:#48567a;--border:rgba(148,163,210,.12)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;
+  background-image:radial-gradient(ellipse 70% 40% at 50% 0%,rgba(124,58,237,.14),transparent),
+    linear-gradient(rgba(100,120,210,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(100,120,210,.025) 1px,transparent 1px);
+  background-size:100% 100%,44px 44px,44px 44px;
+  display:flex;flex-direction:column;align-items:center;padding:64px 24px 80px}
+.kicker{font:700 12px Inter;letter-spacing:4px;text-transform:uppercase;color:var(--text-3);margin-bottom:14px}
+h1{font:700 52px 'Oswald';letter-spacing:1px;text-align:center;line-height:1.05;
+  background:linear-gradient(120deg,#fbbf24,#a78bfa 50%,#60a5fa);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.lead{max-width:580px;text-align:center;color:var(--text-2);font-size:15px;line-height:1.65;margin:18px 0 48px}
+.lead b{color:var(--text)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;max-width:1000px;width:100%}
+.card{position:relative;border:1px solid var(--border);border-radius:18px;padding:26px 24px 24px;overflow:hidden;
+  text-decoration:none;color:inherit;transition:transform .25s,border-color .25s,box-shadow .25s;background:rgba(12,16,32,.5)}
+.card:hover{transform:translateY(-4px);border-color:rgba(148,163,210,.3)}
+.card .glow{position:absolute;inset:0;opacity:.5;pointer-events:none}
+.card.tribunal .glow{background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(245,158,11,.14),transparent 70%)}
+.card.tribunal:hover{box-shadow:0 20px 50px rgba(245,158,11,.14)}
+.card.neural .glow{background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(192,132,252,.16),transparent 70%)}
+.card.neural:hover{box-shadow:0 20px 50px rgba(192,132,252,.16)}
+.card.fight .glow{background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(255,45,85,.16),transparent 70%)}
+.card.fight:hover{box-shadow:0 20px 50px rgba(255,45,85,.16)}
+.badge{display:inline-block;font:700 10px Inter;letter-spacing:1.5px;text-transform:uppercase;padding:4px 11px;border-radius:30px;margin-bottom:16px;position:relative;z-index:1}
+.card.tribunal .badge{background:rgba(245,158,11,.14);color:#fbbf24;border:1px solid rgba(245,158,11,.35)}
+.card.neural .badge{background:rgba(192,132,252,.14);color:#d8b4fe;border:1px solid rgba(192,132,252,.35)}
+.card.fight .badge{background:rgba(255,45,85,.14);color:#ff7a96;border:1px solid rgba(255,45,85,.35)}
+.icon{font-size:40px;margin-bottom:14px;position:relative;z-index:1}
+.card h2{font:700 24px 'Oswald';letter-spacing:.5px;margin-bottom:8px;position:relative;z-index:1}
+.card p{color:var(--text-2);font-size:13.5px;line-height:1.6;position:relative;z-index:1;min-height:66px}
+.card .go{margin-top:18px;font:700 12px Inter;letter-spacing:1px;text-transform:uppercase;display:inline-flex;align-items:center;gap:6px;position:relative;z-index:1}
+.card.tribunal .go{color:#fbbf24}.card.neural .go{color:#d8b4fe}.card.fight .go{color:#ff7a96}
+.rec{position:absolute;top:16px;right:16px;font:700 9px Inter;letter-spacing:1px;text-transform:uppercase;color:#0a0f1f;background:#fbbf24;padding:3px 9px;border-radius:20px;z-index:2}
+.note{margin-top:50px;max-width:600px;text-align:center;color:var(--text-3);font-size:12.5px;line-height:1.7}
+.note code{font-family:'JetBrains Mono',monospace;color:var(--text-2);background:rgba(148,163,210,.08);padding:1px 6px;border-radius:5px}
+</style>
+</head>
+<body>
+  <div class="kicker">Pair Programmer · Visual Direction</div>
+  <h1>Three ways to make<br/>the debate cinematic</h1>
+  <p class="lead">Each is a self-contained, clickable prototype running a <b>canned debate</b> — no backend, no build. Open one, hit the action button, and watch the full sequence: opening, rounds, and the verdict. Pick the vibe you like and we'll port it into the real app.</p>
+
+  <div class="cards">
+    <a class="card tribunal" href="tribunal.html">
+      <span class="rec">★ Recommended</span>
+      <div class="glow"></div>
+      <span class="badge">Cinematic Courtroom</span>
+      <div class="icon">⚖</div>
+      <h2>The Tribunal</h2>
+      <p>Code on trial. Critic vs Advocate in color-owned corners, a live <b>tension meter</b> swinging between them, and a verdict that slams down with a gavel. Roast / Standard / Deep each become a different theater.</p>
+      <span class="go">Enter the courtroom →</span>
+    </a>
+
+    <a class="card neural" href="neural-arena.html">
+      <div class="glow"></div>
+      <span class="badge">Abstract Sci-Fi</span>
+      <div class="icon">⟁</div>
+      <h2>Neural Arena</h2>
+      <p>Two glowing inference cores fire energy beams across a dark void while the code floats as a crystalline specimen. Less literal, more "two AIs thinking at each other." Quiet, moody, futuristic.</p>
+      <span class="go">Ignite the arena →</span>
+    </a>
+
+    <a class="card fight" href="fight-night.html">
+      <div class="glow"></div>
+      <span class="badge">Esports / Arcade</span>
+      <div class="icon">🥊</div>
+      <h2>Fight Night</h2>
+      <p>Full versus treatment: HP bars, hit combos, "ROUND 1 / FIGHT", screen shake on critical hits, and a K.O. verdict screen. High-energy and playful — the natural home for roast mode.</p>
+      <span class="go">Start the bout →</span>
+    </a>
+  </div>
+
+  <p class="note">All three share the same canned debate (the SQL-injection / <code>eval()</code> example). Best viewed full-screen in Chrome. Fonts load from Google Fonts, so the first open needs internet; everything else runs locally.</p>
+</body>
+</html>

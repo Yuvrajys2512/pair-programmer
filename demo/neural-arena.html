@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Neural Arena — Pair Programmer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg:#03040a; --text:#dfe6f7; --text-2:#7c8bb5; --text-3:#3f4d70;
+  --crit:#ff3d7f; --crit-glow:rgba(255,61,127,.6);
+  --adv:#22d3ee; --adv-glow:rgba(34,211,238,.6);
+  --judge:#c084fc; --judge-glow:rgba(192,132,252,.6);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;position:relative}
+#field{position:fixed;inset:0;z-index:0}
+.vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(ellipse 60% 60% at 50% 45%,transparent,rgba(3,4,10,.85))}
+
+.wrap{position:relative;z-index:2;height:100vh;display:flex;flex-direction:column;padding:20px 30px 26px}
+.top{display:flex;justify-content:space-between;align-items:center}
+.brand{display:flex;align-items:center;gap:10px;font:700 13px 'Space Grotesk';letter-spacing:3px;text-transform:uppercase;color:var(--text)}
+.brand .o{width:11px;height:11px;border-radius:50%;background:var(--judge);box-shadow:0 0 16px var(--judge-glow);animation:breathe 3s ease-in-out infinite}
+@keyframes breathe{50%{box-shadow:0 0 30px var(--judge-glow),0 0 50px var(--judge-glow)}}
+.sub{font:500 11px Inter;color:var(--text-3);letter-spacing:1px}
+
+/* core readouts top */
+.cores{display:flex;justify-content:space-between;align-items:flex-start;margin-top:14px}
+.core-label{font:700 11px 'Space Grotesk';letter-spacing:2px;text-transform:uppercase}
+.core-label.c{color:var(--crit);text-align:left}
+.core-label.a{color:var(--adv);text-align:right}
+.core-label small{display:block;font:500 10px Inter;color:var(--text-3);letter-spacing:.5px;margin-top:3px;text-transform:none}
+
+/* center stack: floating transcript over the canvas synapse */
+.body{flex:1;display:grid;grid-template-columns:1fr minmax(280px,360px);gap:24px;min-height:0;margin-top:8px}
+.left-readout{position:relative;min-height:0;display:flex;align-items:center;justify-content:center}
+.crystal{width:300px;max-width:80%;background:rgba(10,14,30,.5);backdrop-filter:blur(6px);
+  border:1px solid rgba(124,139,181,.18);border-radius:14px;overflow:hidden;
+  box-shadow:0 0 60px rgba(124,139,181,.08);transform:perspective(800px) rotateY(-9deg)}
+.crystal .hd{padding:9px 14px;font:700 9.5px Inter;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);
+  border-bottom:1px solid rgba(124,139,181,.12);display:flex;justify-content:space-between}
+.crystal .hd .dot{color:var(--judge)}
+.crystal pre{padding:14px;margin:0;font:400 11.5px 'JetBrains Mono';line-height:1.7;color:#aebbe0;overflow:auto;max-height:46vh}
+.kw{color:#ff7ab8}.fn{color:#6ee7ff}.str{color:#a7f3d0}.ln{color:#2a3550;display:inline-block;width:20px;user-select:none}
+
+.stream{overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-right:4px;min-height:0}
+.pulse{align-self:center;font:700 11px 'Space Grotesk';letter-spacing:3px;text-transform:uppercase;color:var(--text-3);
+  padding:4px 0;animation:fade .5s}
+.node-msg{border-radius:13px;padding:13px 15px;font-size:13px;line-height:1.6;white-space:pre-wrap;backdrop-filter:blur(8px);
+  animation:rise .5s cubic-bezier(.16,1,.3,1)}
+@keyframes rise{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.node-msg.c{background:linear-gradient(135deg,rgba(255,61,127,.10),rgba(10,14,30,.6));border:1px solid rgba(255,61,127,.25);box-shadow:0 0 24px rgba(255,61,127,.10)}
+.node-msg.a{background:linear-gradient(135deg,rgba(34,211,238,.10),rgba(10,14,30,.6));border:1px solid rgba(34,211,238,.25);box-shadow:0 0 24px rgba(34,211,238,.10)}
+.node-msg .h{font:800 10px 'Space Grotesk';letter-spacing:2px;text-transform:uppercase;margin-bottom:7px}
+.node-msg.c .h{color:var(--crit)}.node-msg.a .h{color:var(--adv)}
+.caret{display:inline-block;width:2px;height:14px;background:currentColor;vertical-align:text-bottom;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{font:700 9px 'Space Grotesk';letter-spacing:1px;padding:2px 8px;border-radius:20px;text-transform:uppercase}
+.chip.CRITICAL{background:rgba(255,61,127,.18);color:#ff7ab8;border:1px solid rgba(255,61,127,.4)}
+.chip.HIGH{background:rgba(251,146,60,.16);color:#fdba74;border:1px solid rgba(251,146,60,.4)}
+.chip.MEDIUM{background:rgba(234,179,8,.14);color:#fde047;border:1px solid rgba(234,179,8,.4)}
+
+.foot{display:flex;justify-content:center;align-items:center;gap:14px;margin-top:14px}
+.ignite{font:700 13px 'Space Grotesk';letter-spacing:2px;text-transform:uppercase;color:#03040a;border:none;cursor:pointer;
+  padding:13px 36px;border-radius:40px;background:linear-gradient(135deg,var(--adv),var(--judge));
+  box-shadow:0 0 36px var(--judge-glow);transition:transform .15s,box-shadow .25s}
+.ignite:hover{transform:translateY(-2px);box-shadow:0 0 56px var(--judge-glow)}
+.ignite:disabled{opacity:.4;cursor:not-allowed}
+.hint{font:500 11px Inter;color:var(--text-3)}
+
+/* verdict */
+.vo{position:fixed;inset:0;z-index:30;display:none;place-items:center;background:radial-gradient(ellipse at center,rgba(3,4,10,.9),rgba(3,4,10,.99));backdrop-filter:blur(12px)}
+.vo.show{display:grid;animation:fade .5s}
+.vcard{text-align:center;width:min(560px,92vw)}
+.vtag{font:700 11px 'Space Grotesk';letter-spacing:5px;text-transform:uppercase;color:var(--judge);margin-bottom:8px}
+.vscore{font:700 120px 'Space Grotesk';line-height:.9;color:var(--judge);text-shadow:0 0 60px var(--judge-glow)}
+.vscore.bad{color:var(--crit);text-shadow:0 0 60px var(--crit-glow)}
+.vsub{font:500 11px Inter;letter-spacing:2px;text-transform:uppercase;color:var(--text-3)}
+.vwin{margin:18px 0;font:600 14px Inter;color:var(--text-2)}
+.vwin b{color:var(--crit)}
+.vacts{text-align:left;max-height:32vh;overflow:auto;margin-top:10px}
+.vact{padding:10px 14px;background:rgba(124,139,181,.06);border:1px solid rgba(124,139,181,.14);border-radius:10px;margin-bottom:7px;font-size:13px;display:grid;grid-template-columns:auto 1fr;gap:12px}
+.vact .p{font:800 11px 'Space Grotesk';color:var(--judge)}
+.vagain{margin-top:20px;background:rgba(124,139,181,.08);border:1px solid rgba(124,139,181,.2);color:var(--text);padding:10px 24px;border-radius:30px;font:600 12px Inter;letter-spacing:1px;cursor:pointer}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<canvas id="field"></canvas>
+<div class="vignette"></div>
+
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><span class="o"></span>Neural Arena</div>
+    <div class="sub">two intelligences · one judgment</div>
+  </div>
+
+  <div class="cores">
+    <div class="core-label c">◆ CRITIC NODE<small>adversarial inference</small></div>
+    <div class="core-label a">ADVOCATE NODE ◆<small>defensive inference</small></div>
+  </div>
+
+  <div class="body">
+    <div class="left-readout">
+      <div class="crystal">
+        <div class="hd"><span class="dot">◇ SPECIMEN</span><span>get_user.py</span></div>
+        <pre id="code"></pre>
+      </div>
+    </div>
+    <div class="stream" id="stream">
+      <div class="pulse" style="margin:auto 0">ignite the arena to begin</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <button class="ignite" id="ignite">⟁ Ignite Arena</button>
+    <span class="hint">demo · canned debate · no backend</span>
+  </div>
+</div>
+
+<div class="vo" id="vo">
+  <div class="vcard">
+    <div class="vtag">Synthesis Complete</div>
+    <div class="vscore bad" id="vscore">0</div>
+    <div class="vsub">integrity score / 100</div>
+    <div class="vwin" id="vwin"></div>
+    <div class="vacts" id="vacts"></div>
+    <button class="vagain" id="vagain">↺ Re-ignite</button>
+  </div>
+</div>
+
+<script>
+// shared canned data (standard mode)
+const CODE=[['def ','kw'],['get_user','fn'],['(user_id):','t'],['\n'],
+['    query = ','t'],['"SELECT * FROM users WHERE id = "','str'],[' + str(user_id)','t'],['\n'],
+['    ','t'],['return','kw'],[' db.execute(query).fetchone()','t'],['\n\n'],
+['def ','kw'],['load_config','fn'],['(path):','t'],['\n'],
+['    ','t'],['try','kw'],[':','t'],['\n'],
+['        ','t'],['return','kw'],[' ','t'],['eval','fn'],['(open(path).read())','t'],['\n'],
+['    ','t'],['except','kw'],[': ','t'],['return','kw'],[' None','t'],['\n']];
+const SCRIPT={score:34,winner:'CRITIC',
+ turns:[
+  {who:'c',h:'Critic Node',tags:['CRITICAL','HIGH'],text:"Line 2 concatenates user input into SQL — a textbook injection vector. And eval() on file contents grants arbitrary execution. This isn't a helper, it's two attack surfaces wearing a function's clothes."},
+  {who:'a',h:'Advocate Node',text:"The SQL injection is real — conceded, indefensible. But the structure is sound: small, single-purpose functions. The fix is parameterization and ast.literal_eval, not a rewrite. Intent was composability; execution leaked authority."},
+  {who:'c',h:'Critic Node',tags:['MEDIUM'],text:"The bare except seals it — every failure collapses into a silent None. When this breaks in production, you get no signal, no trace, just absence. That's not error handling, it's denial."},
+  {who:'a',h:'Advocate Node',text:"Agreed — silent failure is the one I won't defend. Raise a typed error, catch specifics. Three principled changes and this module is defensible. I rest on the boundaries, not the bugs."},
+ ],
+ actions:[
+  {p:'P0',t:'Parameterize the query — bind user_id, never concatenate.'},
+  {p:'P0',t:'Replace eval() with ast.literal_eval() or a real config format.'},
+  {p:'P1',t:'Catch specific exceptions; never swallow with a bare except.'},
+ ]};
+
+// ── canvas synapse ──
+const cv=document.getElementById('field'),cx=cv.getContext('2d');
+let W,H; function size(){W=cv.width=innerWidth;H=cv.height=innerHeight;} size();addEventListener('resize',size);
+// two cores positioned upper-left and upper-right area; judge center
+function cores(){return{c:{x:W*0.16,y:H*0.30},a:{x:W*0.62,y:H*0.30},j:{x:W*0.39,y:H*0.30}};}
+let t=0, active=null, beam=0, judgeOn=false;
+const stars=[];for(let i=0;i<90;i++)stars.push({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*1.4+.3,a:Math.random()*.5+.1,vy:(Math.random()-.5)*.1});
+function orb(p,color,glow,energy){
+  const r=22+energy*10+Math.sin(t*2)*2;
+  const g=cx.createRadialGradient(p.x,p.y,0,p.x,p.y,r*3.4);
+  g.addColorStop(0,glow); g.addColorStop(.4,color.replace('1)','.25)')); g.addColorStop(1,'transparent');
+  cx.fillStyle=g; cx.beginPath();cx.arc(p.x,p.y,r*3.4,0,7);cx.fill();
+  cx.fillStyle=color;cx.beginPath();cx.arc(p.x,p.y,r,0,7);cx.fill();
+}
+function draw(){
+  t+=0.016; cx.clearRect(0,0,W,H);
+  for(const s of stars){s.y+=s.vy;if(s.y<0)s.y=H;if(s.y>H)s.y=0;cx.fillStyle=`rgba(150,160,200,${s.a})`;cx.beginPath();cx.arc(s.x,s.y,s.r,0,7);cx.fill();}
+  const C=cores();
+  // beam between active speaker and opponent
+  if(beam>0){
+    const from = active==='c'?C.c:C.a, to=active==='c'?C.a:C.c;
+    const col = active==='c'?'rgba(255,61,127,':'rgba(34,211,238,';
+    for(let i=0;i<5;i++){
+      cx.strokeStyle=col+(beam*(.5-i*.08))+')';cx.lineWidth=4-i*.7;cx.beginPath();
+      cx.moveTo(from.x,from.y);
+      const mx=(from.x+to.x)/2, my=(from.y+to.y)/2 + Math.sin(t*6+i)*22;
+      cx.quadraticCurveTo(mx,my,to.x,to.y);cx.stroke();
+    }
+    beam=Math.max(0,beam-0.012);
+  }
+  orb(C.c,'rgba(255,61,127,1)','rgba(255,61,127,.7)', active==='c'?1.4:.4);
+  orb(C.a,'rgba(34,211,238,1)','rgba(34,211,238,.7)', active==='a'?1.4:.4);
+  if(judgeOn) orb(C.j,'rgba(192,132,252,1)','rgba(192,132,252,.8)',1.8);
+  requestAnimationFrame(draw);
+}
+draw();
+
+// ── code paint ──
+const codeEl=document.getElementById('code');
+let html='',ln=1,start=true;
+for(const [txt,cls] of CODE){
+  if(txt.includes('\n')){html+=txt;ln+=(txt.match(/\n/g)||[]).length;start=true;
+    if(txt.endsWith('\n')) {start=true;} continue;}
+  if(start){html+=`<span class="ln">${String(ln).padStart(2,' ')}</span> `;start=false;}
+  const c=['kw','fn','str'].includes(cls)?cls:'';
+  const e=txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  html+=c?`<span class="${c}">${e}</span>`:e;
+}
+codeEl.innerHTML=html;
+
+// ── sequence ──
+const $=id=>document.getElementById(id), S=$('stream'), sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let busy=false;
+async function type(el,text){el.innerHTML='<span class="caret"></span>';const c=el.querySelector('.caret');
+  for(let i=0;i<text.length;i++){c.insertAdjacentText('beforebegin',text[i]);if(i%2===0)S.scrollTop=S.scrollHeight;await sleep(text.length>240?7:11);}c.remove();}
+function pulse(txt){const d=document.createElement('div');d.className='pulse';d.textContent=txt;S.appendChild(d);S.scrollTop=S.scrollHeight;}
+function msg(turn){const d=document.createElement('div');d.className='node-msg '+turn.who;
+  let tags = turn.tags? `<div class="tag-row">${turn.tags.map(x=>`<span class="chip ${x}">${x}</span>`).join('')}</div>`:'';
+  d.innerHTML=`<div class="h">◆ ${turn.h}</div><div class="bd"></div>${tags}`;S.appendChild(d);S.scrollTop=S.scrollHeight;return d.querySelector('.bd');}
+
+async function run(){
+  if(busy)return;busy=true;$('ignite').disabled=true;S.innerHTML='';
+  await sleep(300);
+  pulse('— round 01 —');
+  for(let i=0;i<SCRIPT.turns.length;i++){
+    const turn=SCRIPT.turns[i];
+    active=turn.who; beam=1;
+    await type(msg(turn),turn.text);
+    await sleep(450);
+    if(i===1) pulse('— round 02 —');
+  }
+  active=null;judgeOn=true;await sleep(800);
+  // verdict
+  $('vo').classList.add('show');await sleep(300);
+  const sc=$('vscore');sc.className='vscore '+(SCRIPT.score>=70?'':'bad');
+  let c=0;await new Promise(res=>{const st=()=>{c+=2;if(c>=SCRIPT.score){c=SCRIPT.score;sc.textContent=c;res();}else{sc.textContent=c;setTimeout(st,26);}};st();});
+  $('vwin').innerHTML=`dominant inference: <b>${SCRIPT.winner} NODE</b>`;
+  const va=$('vacts');va.innerHTML='';
+  SCRIPT.actions.forEach((a,i)=>{const d=document.createElement('div');d.className='vact';d.style.animation=`rise .5s ${i*.1}s both`;d.innerHTML=`<span class="p">${a.p}</span><span>${a.t}</span>`;va.appendChild(d);});
+  busy=false;
+}
+$('ignite').onclick=run;
+$('vagain').onclick=()=>{$('vo').classList.remove('show');judgeOn=false;S.innerHTML='<div class="pulse" style="margin:auto 0">ignite the arena to begin</div>';$('ignite').disabled=false;setTimeout(run,250);};
+</script>
+</body>
+</html>
